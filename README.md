@@ -70,3 +70,37 @@ docs/          01 arquitectura · 02 esquema y RLS · 03 auditoría IA · memori
 bitacora/      prompts 01–05, v1–v5 (respuesta, código, verificación, diff), ajuste tras capturas
 herramientas/  verificar-version · verificacion-final · probar-supabase-local · medir-bundle · generar_documento · cli
 ```
+
+## Capturas
+
+**Escritorio: estado de carga**
+
+![Escritorio: estado de carga](docs/capturas/01-escritorio-carga.png)
+
+**Escritorio: estado de error con «Reintentar»**
+
+![Escritorio: estado de error con «Reintentar»](docs/capturas/02-escritorio-error.png)
+
+**Escritorio: aviso de tiempo real (modo demo)**
+
+![Escritorio: aviso de tiempo real (modo demo)](docs/capturas/03-escritorio-tiempo-real-demo.png)
+
+**Escritorio: mutación optimista revertida al fallar el servidor**
+
+![Escritorio: mutación optimista revertida al fallar el servidor](docs/capturas/04-escritorio-reversion.png)
+
+**Escritorio: cambio de otro usuario recibido en tiempo real (Supabase local)**
+
+![Escritorio: cambio de otro usuario recibido en tiempo real (Supabase local)](docs/capturas/05-escritorio-tiempo-real-supabase-local.png)
+
+**Móvil: tiempo real contra Supabase local**
+
+![Móvil: tiempo real contra Supabase local](docs/capturas/06-movil-tiempo-real-supabase-local.png)
+
+**Móvil: carga**
+
+![Móvil: carga](docs/capturas/07-movil-carga.png)
+
+**Móvil: error**
+
+![Móvil: error](docs/capturas/08-movil-error.png)
