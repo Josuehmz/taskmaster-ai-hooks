@@ -1,0 +1,43 @@
+Verificación de v1 · 2026-11-10 13:23:17 -0500 · node v24.15.0 · pnpm 11.24.0
+
+### TypeScript
+$ pnpm exec tsc -b --noEmit
+(código de salida: 0)
+
+### Lint (oxlint)
+$ pnpm exec oxlint --deny-warnings
+src/components/DemoModeBadge.tsx:11:7: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+src/hooks/useRealtimeCollection.ts:142:7: warning react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+(código de salida: 1)
+
+### Pruebas (Vitest)
+Esta versión no trae pruebas.
+
+### Build sin variables de entorno
+$ pnpm exec vite build
+vite v8.3.7 building client environment for production...
+transforming...
+✓ 80 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.44 kB │ gzip:   0.30 kB
+dist/assets/index-DuNAYuys.css   10.09 kB │ gzip:   2.76 kB
+dist/assets/index-BYPNaAxN.js   453.26 kB │ gzip: 129.26 kB
+
+✓ built in 3.84s
+(código de salida: 0)
+
+### Build con variables de prueba (valores falsos)
+$ pnpm exec vite build
+vite v8.3.7 building client environment for production...
+transforming...
+✓ 80 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.44 kB │ gzip:   0.30 kB
+dist/assets/index-DuNAYuys.css   10.09 kB │ gzip:   2.76 kB
+dist/assets/index-DCnLTa_f.js   453.31 kB │ gzip: 129.30 kB
+
+✓ built in 4.08s
+(código de salida: 0)
+
