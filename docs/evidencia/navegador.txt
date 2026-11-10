@@ -1,0 +1,46 @@
+Pruebas en el navegador sobre el build de producción (vite preview) · 2026-11-10 14:30–14:45 -0500
+Código: src/ final (v5 + ajuste tras capturas). Navegador Chromium automatizado. Capturas en docs/capturas/.
+
+A. MODO DEMO (dist/, sin variables) · http://localhost:5181
+  - Chunks .js descargados (performance.getEntriesByType('resource')):
+      ['index-….js', 'demo-….js', 'validation-….js']   → supabase-js (supabaseClient-….js) NO se descarga.
+  - ?demo=lento → "Cargando tareas…" con el canal ya "● En vivo"            (01-escritorio-carga.png, 07-movil-carga.png)
+  - ?demo=error → "No se pudieron cargar las tareas: Error simulado de red al cargar las tareas
+                  (modo demo, ?demo=error)" + botón Reintentar              (02-escritorio-error.png, 08-movil-error.png)
+  - "Simular cambio de otro usuario" → "En tiempo real: Otro usuario creó «Medir el bundle»"
+                                                                            (03-escritorio-tiempo-real-demo.png)
+  - ?demo=falla-guardar, mover «Encapsular Supabase en hooks» a Por hacer:
+      antes:      Por hacer: — · En curso: Encapsular Supabase en hooks · Hecha: Definir el esquema de datos
+      optimista:  Por hacer: Encapsular Supabase en hooks · En curso: — · Hecha: Definir el esquema de datos   (150 ms después)
+      tras fallo: Por hacer: — · En curso: Encapsular Supabase en hooks · Hecha: Definir el esquema de datos
+      aviso:      "No se pudo guardar el cambio y se deshizo: Error simulado al guardar (modo demo, ?demo=falla-guardar)"
+                                                                            (04-escritorio-reversion.png)
+
+B. MODO SUPABASE contra el Supabase LOCAL (dist-local/, CLI 2.122.0 con Realtime) · http://localhost:5182
+  Preparación: herramientas/preparar-navegador-local.mjs (ana owner, beto miembro, proyecto «Lanzamiento»,
+  2 tareas). La sesión de ana se inyectó en localStorage; beto actuó desde otro proceso
+  (herramientas/actuar-como-beto.mjs). Nadie recargó la página.
+  - Chunks .js descargados: ['index-….js', 'supabase-….js', 'validation-….js', 'supabaseClient-….js']
+                            → el repositorio demo (demo-….js) NO se descarga.
+  - beto crear  → "En tiempo real: Otro usuario creó «Preparar la demo (creada por Beto)»"
+                                                                            (05-escritorio-tiempo-real-supabase-local.png)
+  - beto mover  → "En tiempo real: Otro usuario actualizó «Preparar la demo (creada por Beto)» (ahora: Hecha)"
+                                                                            (06-movil-tiempo-real-supabase-local.png, 360 px)
+  - beto borrar → "En tiempo real: Otro usuario borró «Preparar la demo (creada por Beto)»";
+                  tarjetas restantes: ['Revisar las políticas RLS', 'Escribir el plan de lanzamiento']
+                  (el DELETE llega solo con el id; el título sale de la fila que ya estaba en la lista)
+  - En la prueba de v2 (bitacora/v2/navegador-supabase-local.txt): la tarea creada por la propia ana
+    aparece una sola vez y no se anuncia como cambio remoto.
+
+Lo que las capturas destaparon y se corrigió (bitacora/ajuste-final-tras-capturas.diff):
+  1. ?demo=lento y ?demo=error afectaban también a proyectos y miembros: el tablero nunca mostraba su
+     carga ni su error con «Reintentar». Ahora afectan solo a la carga de tareas, y ?demo=error falla
+     solo la PRIMERA carga, así que «Reintentar» la recupera (prueba nueva en TaskBoard.test.tsx). El
+     error de proyectos también tiene «Reintentar».
+  2. En móvil, el aviso de tiempo real (un <span> en línea con borde) se partía en dos cajas
+     superpuestas: pasa a inline-block.
+  3. Mientras cargaban los perfiles, los miembros salían como «Usuario / Usuario»: ahora dicen
+     «Cargando nombre…».
+
+No probado en el navegador: el formulario de inicio de sesión con contraseña (el navegador automatizado
+no escribe contraseñas). Lo cubre Workspace.test.tsx con un AuthRepository falso.

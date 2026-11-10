@@ -9,7 +9,7 @@ export type DemoControlsPanelProps = {
 
 const LINKS = [
   { href: '?demo=lento', label: 'Carga lenta' },
-  { href: '?demo=error', label: 'Error de carga' },
+  { href: '?demo=error', label: 'Error de carga (1.ª vez)' },
   { href: '?demo=falla-guardar', label: 'Error al guardar' },
   { href: '?', label: 'Normal' },
 ] as const

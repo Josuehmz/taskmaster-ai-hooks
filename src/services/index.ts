@@ -20,17 +20,17 @@ export function hasSupabaseConfig(): boolean {
 
 /**
  * Lee los parámetros que solo valen en modo demo, para poder demostrar los estados:
- *   ?demo=lento          la carga tarda 2,5 s
- *   ?demo=error          la carga falla
+ *   ?demo=lento          la carga de tareas tarda 2,5 s
+ *   ?demo=error          la primera carga de tareas falla («Reintentar» la recupera)
  *   ?demo=falla-guardar  las mutaciones fallan (se ve la reversión del cambio optimista)
  */
 export function demoOptionsFromSearch(search: string): DemoOptions {
   const mode = new URLSearchParams(search).get('demo')
   switch (mode) {
     case 'lento':
-      return { latencyMs: 2500 }
+      return { slowTaskLoads: true }
     case 'error':
-      return { failLoads: true }
+      return { failFirstTaskLoad: true }
     case 'falla-guardar':
       return { failWrites: true }
     default:

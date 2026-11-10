@@ -1,0 +1,115 @@
+Verificación final de src/ · 2026-11-10 14:26:39 -0500 · node v24.15.0 · pnpm 11.24.0 · commit 0842e7a
+
+### $ pnpm install --frozen-lockfile
+Already up to date
+Done in 2.3s using pnpm v11.24.0
+(código de salida: 0)
+
+Nota: tsconfig.json tiene "files": [] y solo referencias; el chequeo real es tsc -b (script typecheck).
+
+### $ pnpm typecheck
+$ tsc -b --noEmit
+(código de salida: 0)
+
+### $ pnpm lint
+$ oxlint --deny-warnings
+(código de salida: 0)
+
+### Regla de capas en negativo: un componente que importa Supabase debe fallar el lint
+src/components/__ViolacionDePrueba.tsx:1:1: error eslint(no-restricted-imports): '@supabase/supabase-js' import is restricted from being used. help: Arquitectura: la UI no usa Supabase; habla con un hook de src/hooks/.
+src/components/__ViolacionDePrueba.tsx:2:1: error eslint(no-restricted-imports): '../lib/supabaseClient' import is restricted from being used by a pattern. help: Arquitectura: la UI no usa el cliente de Supabase (src/lib); usa un hook.
+src/components/__ViolacionDePrueba.tsx:3:1: error eslint(no-restricted-imports): '../services' import is restricted from being used by a pattern. help: Arquitectura: la UI no llama servicios; usa useTasks, useComments, useProjectMembers…
+(código de salida: 1; se espera 1)
+
+### $ pnpm test
+$ vitest run
+
+ RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
+
+
+ Test Files  8 passed (8)
+      Tests  37 passed (37)
+   Start at  14:27:07
+   Duration  20.32s (environment 65%, setup 24%, tests 4%, transform 4%, import 2%)
+
+    Isolate  8 workers spawned · ~8.77s startup each (spawn + environment, per file)
+             at least ~1.25s faster with isolate: false — reuses workers across files instead of one per file
+
+(código de salida: 0)
+
+### $ pnpm build
+$ tsc -b && vite build
+vite v8.3.7 building client environment for production...
+transforming...
+✓ 95 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                           0.44 kB │ gzip:  0.30 kB
+dist/assets/index-DO80z5lZ.css           17.01 kB │ gzip:  4.32 kB
+dist/assets/validation-VCUhiuNi.js        1.34 kB │ gzip:  0.71 kB
+dist/assets/supabase-rzVqX61B.js          4.91 kB │ gzip:  1.79 kB
+dist/assets/demo-COWQkXaA.js              7.25 kB │ gzip:  2.54 kB
+dist/assets/supabaseClient-RKgf0EGn.js  216.10 kB │ gzip: 55.72 kB
+dist/assets/index-Gaopg6oS.js           247.41 kB │ gzip: 76.42 kB
+
+✓ built in 1.42s
+(código de salida: 0)
+
+### Build con variables de prueba (valores falsos, no son credenciales): modo Supabase
+### $ pnpm exec vite build
+vite v8.3.7 building client environment for production...
+transforming...
+✓ 95 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                           0.44 kB │ gzip:  0.30 kB
+dist/assets/index-DO80z5lZ.css           17.01 kB │ gzip:  4.32 kB
+dist/assets/validation-VCUhiuNi.js        1.34 kB │ gzip:  0.71 kB
+dist/assets/supabase-rzVqX61B.js          4.91 kB │ gzip:  1.79 kB
+dist/assets/demo-COWQkXaA.js              7.25 kB │ gzip:  2.54 kB
+dist/assets/supabaseClient-csSvMFvh.js  216.16 kB │ gzip: 55.75 kB
+dist/assets/index-DFDNp4T9.js           247.41 kB │ gzip: 76.42 kB
+
+✓ built in 1.15s
+(código de salida: 0)
+
+### RLS y Realtime contra el Supabase local (CLI 2.122.0, tres usuarios reales)
+### $ bash herramientas/probar-supabase-local.sh
+TAP version 13
+ok 1 - signUp de ana, beto y carla (Auth local, sin confirmación de correo)
+ok 2 - el trigger de auth.users creó el perfil con display_name # {"display_name":"ana"}
+ok 3 - ana crea un proyecto; created_by lo pone la base
+ok 4 - el trigger agregó a ana como owner # {"role":"owner"}
+ok 5 - ana (owner) agrega a beto como miembro
+ok 6 - carla NO puede meterse sola al proyecto # new row violates row-level security policy for table "project_members"
+ok 7 - carla no ve el proyecto (lista vacía, no error) # []
+ok 8 - beto se suscribe a postgres_changes con filtro project_id=eq # SUBSCRIBED
+ok 9 - carla se suscribe (con filtro y sin filtro) # SUBSCRIBED / SUBSCRIBED
+ok 10 - ana crea una tarea; created_by = ana
+ok 11 - beto recibe el INSERT en tiempo real # title=Escribir el plan
+ok 12 - ana mueve la tarea a in_progress
+ok 13 - beto recibe el UPDATE con el estado nuevo # old.status=todo
+ok 14 - beto crea una tarea con id generado en el cliente (grant insert (id))
+ok 15 - un id repetido se rechaza (no sobrescribe la fila existente) # duplicate key value violates unique constraint "tasks_pkey"
+ok 16 - mandar el id no le sirve a carla para entrar al proyecto # new row violates row-level security policy for table "tasks"
+ok 17 - carla no ve las tareas del proyecto # []
+ok 18 - carla no puede crear tareas en el proyecto # new row violates row-level security policy for table "tasks"
+ok 19 - el update de carla no afecta filas # []
+ok 20 - el delete de carla no afecta filas # []
+ok 21 - beto (miembro) no puede reescribir created_by # permission denied for table tasks
+ok 22 - nadie puede mover una tarea de proyecto (sin grant de update en project_id) # permission denied for table tasks
+ok 23 - anon (sin sesión) no lee tareas # permission denied for table tasks
+ok 24 - beto comenta; author_id lo pone la base
+ok 25 - carla no ve los comentarios # []
+ok 26 - ana borra la tarea
+ok 27 - beto recibe el DELETE (filtro project_id con replica identity full) # columnas de old: id
+ok 28 - carla no recibe INSERT ni UPDATE de un proyecto ajeno # eventos: [DELETE,DELETE,DELETE,DELETE]
+# DELETE recibidos por carla: 4 (columnas de old: id)
+ok 29 - si a carla le llega un DELETE ajeno, solo trae la clave primaria (no filtra datos) # 4 DELETE
+ok 30 - el último owner no puede salirse del proyecto # Un proyecto no puede quedarse sin owner
+ok 31 - ana borra el proyecto (la cascada pasa el trigger del último owner)
+ok 32 - removeChannel deja los clientes sin canales
+1..32
+# 32 de 32 pasan
+(código de salida: 0)
+

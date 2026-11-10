@@ -24,8 +24,13 @@ const DEMO_PROJECT_ID = '00000000-0000-4000-8000-000000000101'
 export type DemoOptions = {
   /** Latencia simulada en ms (0 en pruebas). */
   readonly latencyMs?: number
-  /** Todas las cargas (list) fallan: para mostrar el estado de error. */
-  readonly failLoads?: boolean
+  /** La carga de tareas tarda 2,5 s: para ver el estado de carga del tablero (?demo=lento). */
+  readonly slowTaskLoads?: boolean
+  /**
+   * La PRIMERA carga de tareas falla y las siguientes funcionan: se ve el error del tablero y que
+   * «Reintentar» lo recupera (?demo=error). Solo afecta a useTasks, el hook que se evalúa.
+   */
+  readonly failFirstTaskLoad?: boolean
   /** Todas las escrituras fallan: para mostrar la reversión del cambio optimista. */
   readonly failWrites?: boolean
 }
@@ -44,8 +49,14 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
 
   async function readDelay(signal?: AbortSignal): Promise<void> {
     await delay(latency, signal)
-    if (options.failLoads) {
-      throw new RepositoryError('unknown', 'Error simulado de red al cargar (modo demo, ?demo=error)')
+  }
+
+  let taskLoadFailurePending = options.failFirstTaskLoad === true
+  async function taskReadDelay(signal?: AbortSignal): Promise<void> {
+    await delay(options.slowTaskLoads ? 2500 : latency, signal)
+    if (taskLoadFailurePending) {
+      taskLoadFailurePending = false
+      throw new RepositoryError('unknown', 'Error simulado de red al cargar las tareas (modo demo, ?demo=error)')
     }
   }
 
@@ -232,7 +243,7 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
 
   const taskRepository: TaskRepository = {
     async list(projectId, signal) {
-      await readDelay(signal)
+      await taskReadDelay(signal)
       requireMember(projectId)
       return tasks.list((task) => task.project_id === projectId).toSorted(byCreatedAt)
     },

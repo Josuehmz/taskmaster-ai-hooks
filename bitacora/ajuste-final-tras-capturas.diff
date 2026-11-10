@@ -1,0 +1,257 @@
+diff --git a/bitacora/v5/src/components/DemoControlsPanel.tsx b/src/components/DemoControlsPanel.tsx
+index 47ce70e..4aa3f2b 100644
+--- a/bitacora/v5/src/components/DemoControlsPanel.tsx
++++ b/src/components/DemoControlsPanel.tsx
+@@ -9,7 +9,7 @@ export type DemoControlsPanelProps = {
+ 
+ const LINKS = [
+   { href: '?demo=lento', label: 'Carga lenta' },
+-  { href: '?demo=error', label: 'Error de carga' },
++  { href: '?demo=error', label: 'Error de carga (1.ª vez)' },
+   { href: '?demo=falla-guardar', label: 'Error al guardar' },
+   { href: '?', label: 'Normal' },
+ ] as const
+diff --git a/bitacora/v5/src/components/MembersList.tsx b/src/components/MembersList.tsx
+index fd11ccb..54fd001 100644
+--- a/bitacora/v5/src/components/MembersList.tsx
++++ b/src/components/MembersList.tsx
+@@ -8,7 +8,7 @@ export type MembersListProps = {
+ 
+ export function MembersList({ projectId }: MembersListProps) {
+   const { members, loading, error } = useProjectMembers(projectId)
+-  const { profilesById } = useProfiles(members.map((member) => member.user_id))
++  const { profilesById, loading: profilesLoading } = useProfiles(members.map((member) => member.user_id))
+ 
+   return (
+     <section aria-labelledby="miembros-titulo" className="rounded-lg border border-slate-200 bg-white p-3">
+@@ -20,7 +20,7 @@ export function MembersList({ projectId }: MembersListProps) {
+       <ul className="flex flex-col gap-1 text-sm">
+         {members.map((member) => (
+           <li key={member.user_id} className="flex justify-between gap-2">
+-            <span>{profilesById.get(member.user_id)?.display_name ?? 'Usuario'}</span>
++            <span>{profilesById.get(member.user_id)?.display_name ?? (profilesLoading ? 'Cargando nombre…' : 'Usuario')}</span>
+             <span className="text-xs text-slate-500">{member.role === 'owner' ? 'Owner' : 'Miembro'}</span>
+           </li>
+         ))}
+diff --git a/bitacora/v5/src/components/TaskBoard.test.tsx b/src/components/TaskBoard.test.tsx
+index b884568..dd3bdaa 100644
+--- a/bitacora/v5/src/components/TaskBoard.test.tsx
++++ b/src/components/TaskBoard.test.tsx
+@@ -26,6 +26,14 @@ describe('TaskBoard (ejemplo de implementación)', () => {
+     expect(await screen.findByText('Medir el bundle')).toBeTruthy()
+   })
+ 
++  it('si la carga falla muestra el error y «Reintentar» la recupera (?demo=error)', async () => {
++    renderWithDemo(<TaskBoard projectId={DEMO_PROJECT_ID} currentUserId={DEMO_USER_ID} />, {}, { failFirstTaskLoad: true })
++    expect(await screen.findByText(/No se pudieron cargar las tareas/)).toBeTruthy()
++    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
++    expect(await screen.findByText('Encapsular Supabase en hooks')).toBeTruthy()
++    expect(screen.queryByText(/No se pudieron cargar las tareas/)).toBeNull()
++  })
++
+   it('anuncia el cambio de otro usuario que llega por tiempo real', async () => {
+     renderBoard()
+     await screen.findByText('Encapsular Supabase en hooks')
+diff --git a/bitacora/v5/src/components/TaskBoard.tsx b/src/components/TaskBoard.tsx
+index 368eadf..b05921f 100644
+--- a/bitacora/v5/src/components/TaskBoard.tsx
++++ b/src/components/TaskBoard.tsx
+@@ -52,12 +52,12 @@ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
+     clearMutationError,
+   } = useTasks(projectId)
+   const { members } = useProjectMembers(projectId)
+-  const { profilesById } = useProfiles(members.map((member) => member.user_id))
++  const { profilesById, loading: profilesLoading } = useProfiles(members.map((member) => member.user_id))
+   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+ 
+   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
+   const nameOf = (userId: string | null) =>
+-    userId === null ? null : (profilesById.get(userId)?.display_name ?? 'Usuario')
++    userId === null ? null : (profilesById.get(userId)?.display_name ?? (profilesLoading ? 'Cargando nombre…' : 'Usuario'))
+   const badge = REALTIME_BADGE[realtime]
+ 
+   // Las mutaciones ya revierten y guardan el error en mutationError; aquí solo se evita el
+@@ -79,7 +79,7 @@ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
+         {/* Región viva: los lectores de pantalla anuncian lo que llega por tiempo real. */}
+         <p aria-live="polite" className="min-h-5 text-sm text-emerald-800">
+           {lastRemoteChange !== null && (
+-            <span className="rounded bg-emerald-50 px-2 py-1 ring-1 ring-emerald-200">
++            <span className="inline-block rounded bg-emerald-50 px-2 py-1 ring-1 ring-emerald-200">
+               En tiempo real: {describeRemote(lastRemoteChange)}
+             </span>
+           )}
+diff --git a/bitacora/v5/src/components/Workspace.tsx b/src/components/Workspace.tsx
+index a1f7a6a..d45c0da 100644
+--- a/bitacora/v5/src/components/Workspace.tsx
++++ b/src/components/Workspace.tsx
+@@ -38,7 +38,7 @@ function NewProjectForm({ onCreate }: { readonly onCreate: (name: string) => Pro
+ }
+ 
+ function ProjectsArea({ user }: { readonly user: SessionUser }) {
+-  const { projects, loading, error, createProject } = useProjects()
++  const { projects, loading, error, createProject, refetch } = useProjects()
+   const [chosenId, setChosenId] = useState<string | null>(null)
+   const selectId = useId()
+   const project = projects.find((p) => p.id === chosenId) ?? projects[0]
+@@ -46,7 +46,18 @@ function ProjectsArea({ user }: { readonly user: SessionUser }) {
+   return (
+     <>
+       {loading && <output className="block text-sm text-slate-600">Cargando proyectos…</output>}
+-      {error !== null && <p role="alert" className="text-sm text-red-700">No se pudieron cargar los proyectos: {error.message}</p>}
++      {error !== null && (
++        <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-red-700">
++          <p>No se pudieron cargar los proyectos: {error.message}</p>
++          <button
++            type="button"
++            onClick={() => void refetch()}
++            className="rounded-md bg-red-700 px-3 py-1 font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-900"
++          >
++            Reintentar
++          </button>
++        </div>
++      )}
+       {!loading && error === null && projects.length === 0 && (
+         <div className="flex flex-col gap-2">
+           <p className="text-sm text-slate-600">No eres miembro de ningún proyecto. Crea uno:</p>
+diff --git a/src/index.css b/src/index.css
+new file mode 100644
+index 0000000..f1d8c73
+--- /dev/null
++++ b/src/index.css
+@@ -0,0 +1 @@
++@import "tailwindcss";
+diff --git a/src/main.tsx b/src/main.tsx
+new file mode 100644
+index 0000000..b4c8f08
+--- /dev/null
++++ b/src/main.tsx
+@@ -0,0 +1,13 @@
++import { StrictMode } from 'react'
++import { createRoot } from 'react-dom/client'
++import './index.css'
++import App from './App.tsx'
++
++const root = document.getElementById('root')
++if (!root) throw new Error('No se encontró el elemento #root en index.html')
++
++createRoot(root).render(
++  <StrictMode>
++    <App />
++  </StrictMode>,
++)
+diff --git a/bitacora/v5/src/services/demo/index.ts b/src/services/demo/index.ts
+index c822b6d..1141655 100644
+--- a/bitacora/v5/src/services/demo/index.ts
++++ b/src/services/demo/index.ts
+@@ -24,8 +24,13 @@ const DEMO_PROJECT_ID = '00000000-0000-4000-8000-000000000101'
+ export type DemoOptions = {
+   /** Latencia simulada en ms (0 en pruebas). */
+   readonly latencyMs?: number
+-  /** Todas las cargas (list) fallan: para mostrar el estado de error. */
+-  readonly failLoads?: boolean
++  /** La carga de tareas tarda 2,5 s: para ver el estado de carga del tablero (?demo=lento). */
++  readonly slowTaskLoads?: boolean
++  /**
++   * La PRIMERA carga de tareas falla y las siguientes funcionan: se ve el error del tablero y que
++   * «Reintentar» lo recupera (?demo=error). Solo afecta a useTasks, el hook que se evalúa.
++   */
++  readonly failFirstTaskLoad?: boolean
+   /** Todas las escrituras fallan: para mostrar la reversión del cambio optimista. */
+   readonly failWrites?: boolean
+ }
+@@ -44,8 +49,14 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories
+ 
+   async function readDelay(signal?: AbortSignal): Promise<void> {
+     await delay(latency, signal)
+-    if (options.failLoads) {
+-      throw new RepositoryError('unknown', 'Error simulado de red al cargar (modo demo, ?demo=error)')
++  }
++
++  let taskLoadFailurePending = options.failFirstTaskLoad === true
++  async function taskReadDelay(signal?: AbortSignal): Promise<void> {
++    await delay(options.slowTaskLoads ? 2500 : latency, signal)
++    if (taskLoadFailurePending) {
++      taskLoadFailurePending = false
++      throw new RepositoryError('unknown', 'Error simulado de red al cargar las tareas (modo demo, ?demo=error)')
+     }
+   }
+ 
+@@ -232,7 +243,7 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories
+ 
+   const taskRepository: TaskRepository = {
+     async list(projectId, signal) {
+-      await readDelay(signal)
++      await taskReadDelay(signal)
+       requireMember(projectId)
+       return tasks.list((task) => task.project_id === projectId).toSorted(byCreatedAt)
+     },
+diff --git a/bitacora/v5/src/services/index.ts b/src/services/index.ts
+index 65f6321..579b8e7 100644
+--- a/bitacora/v5/src/services/index.ts
++++ b/src/services/index.ts
+@@ -20,17 +20,17 @@ export function hasSupabaseConfig(): boolean {
+ 
+ /**
+  * Lee los parámetros que solo valen en modo demo, para poder demostrar los estados:
+- *   ?demo=lento          la carga tarda 2,5 s
+- *   ?demo=error          la carga falla
++ *   ?demo=lento          la carga de tareas tarda 2,5 s
++ *   ?demo=error          la primera carga de tareas falla («Reintentar» la recupera)
+  *   ?demo=falla-guardar  las mutaciones fallan (se ve la reversión del cambio optimista)
+  */
+ export function demoOptionsFromSearch(search: string): DemoOptions {
+   const mode = new URLSearchParams(search).get('demo')
+   switch (mode) {
+     case 'lento':
+-      return { latencyMs: 2500 }
++      return { slowTaskLoads: true }
+     case 'error':
+-      return { failLoads: true }
++      return { failFirstTaskLoad: true }
+     case 'falla-guardar':
+       return { failWrites: true }
+     default:
+diff --git a/bitacora/v5/src/test/renderWithDemo.tsx b/src/test/renderWithDemo.tsx
+index a68c22e..bcb95ed 100644
+--- a/bitacora/v5/src/test/renderWithDemo.tsx
++++ b/src/test/renderWithDemo.tsx
+@@ -4,7 +4,7 @@
+ import { render } from '@testing-library/react'
+ import type { ReactElement } from 'react'
+ import { RepositoriesProvider } from '../hooks/RepositoriesContext'
+-import { createDemoRepositories, DEMO_USER_ID } from '../services/demo'
++import { createDemoRepositories, DEMO_USER_ID, type DemoOptions } from '../services/demo'
+ import type { Repositories } from '../services/types'
+ 
+ export type { AuthRepository, Repositories } from '../services/types'
+@@ -12,8 +12,12 @@ export type { AuthRepository, Repositories } from '../services/types'
+ export { DEMO_USER_ID }
+ export const DEMO_PROJECT_ID = '00000000-0000-4000-8000-000000000101'
+ 
+-export function renderWithDemo(ui: ReactElement, override: Partial<Repositories> = {}) {
+-  const repositories: Repositories = { ...createDemoRepositories({ latencyMs: 0 }), ...override }
++export function renderWithDemo(
++  ui: ReactElement,
++  override: Partial<Repositories> = {},
++  options: DemoOptions = {},
++) {
++  const repositories: Repositories = { ...createDemoRepositories({ latencyMs: 0, ...options }), ...override }
+   return { repositories, ...render(<RepositoriesProvider value={repositories}>{ui}</RepositoriesProvider>) }
+ }
+ 
+diff --git a/src/vite-env.d.ts b/src/vite-env.d.ts
+new file mode 100644
+index 0000000..cbbe8bf
+--- /dev/null
++++ b/src/vite-env.d.ts
+@@ -0,0 +1,10 @@
++/// <reference types="vite/client" />
++
++interface ImportMetaEnv {
++  readonly VITE_SUPABASE_URL?: string
++  readonly VITE_SUPABASE_ANON_KEY?: string
++}
++
++interface ImportMeta {
++  readonly env: ImportMetaEnv
++}

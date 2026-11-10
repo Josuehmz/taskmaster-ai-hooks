@@ -52,12 +52,12 @@ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
     clearMutationError,
   } = useTasks(projectId)
   const { members } = useProjectMembers(projectId)
-  const { profilesById } = useProfiles(members.map((member) => member.user_id))
+  const { profilesById, loading: profilesLoading } = useProfiles(members.map((member) => member.user_id))
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
   const nameOf = (userId: string | null) =>
-    userId === null ? null : (profilesById.get(userId)?.display_name ?? 'Usuario')
+    userId === null ? null : (profilesById.get(userId)?.display_name ?? (profilesLoading ? 'Cargando nombre…' : 'Usuario'))
   const badge = REALTIME_BADGE[realtime]
 
   // Las mutaciones ya revierten y guardan el error en mutationError; aquí solo se evita el
@@ -79,7 +79,7 @@ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
         {/* Región viva: los lectores de pantalla anuncian lo que llega por tiempo real. */}
         <p aria-live="polite" className="min-h-5 text-sm text-emerald-800">
           {lastRemoteChange !== null && (
-            <span className="rounded bg-emerald-50 px-2 py-1 ring-1 ring-emerald-200">
+            <span className="inline-block rounded bg-emerald-50 px-2 py-1 ring-1 ring-emerald-200">
               En tiempo real: {describeRemote(lastRemoteChange)}
             </span>
           )}

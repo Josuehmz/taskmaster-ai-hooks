@@ -38,7 +38,7 @@ function NewProjectForm({ onCreate }: { readonly onCreate: (name: string) => Pro
 }
 
 function ProjectsArea({ user }: { readonly user: SessionUser }) {
-  const { projects, loading, error, createProject } = useProjects()
+  const { projects, loading, error, createProject, refetch } = useProjects()
   const [chosenId, setChosenId] = useState<string | null>(null)
   const selectId = useId()
   const project = projects.find((p) => p.id === chosenId) ?? projects[0]
@@ -46,7 +46,18 @@ function ProjectsArea({ user }: { readonly user: SessionUser }) {
   return (
     <>
       {loading && <output className="block text-sm text-slate-600">Cargando proyectos…</output>}
-      {error !== null && <p role="alert" className="text-sm text-red-700">No se pudieron cargar los proyectos: {error.message}</p>}
+      {error !== null && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-red-700">
+          <p>No se pudieron cargar los proyectos: {error.message}</p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="rounded-md bg-red-700 px-3 py-1 font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-900"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       {!loading && error === null && projects.length === 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-sm text-slate-600">No eres miembro de ningún proyecto. Crea uno:</p>
