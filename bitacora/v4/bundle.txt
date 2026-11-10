@@ -1,0 +1,17 @@
+Composición del bundle · 2026-11-10 14:18:52 -0500 · commit 9d08dcf
+
+## Sin variables de entorno (modo demo)
+react              218.77 kB   gzip   67.52 kB
+supabase-js        210.07 kB   gzip   53.84 kB
+index               31.26 kB   gzip    9.12 kB
+app-modo-demo        8.49 kB   gzip    3.02 kB
+otros-paquetes       6.01 kB   gzip    1.80 kB
+TOTAL              474.60 kB   gzip  135.30 kB
+
+## Con variables de prueba (valores falsos, no son credenciales): modo Supabase
+react              218.77 kB   gzip   67.52 kB
+supabase-js        210.07 kB   gzip   53.84 kB
+index               31.14 kB   gzip    8.98 kB
+app-modo-demo        8.49 kB   gzip    3.02 kB
+otros-paquetes       6.01 kB   gzip    1.80 kB
+TOTAL              474.48 kB   gzip  135.16 kB

@@ -7,7 +7,8 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { build } from 'vite'
 
 const grupo = (id) => {
-  if (!id.includes('node_modules')) return id.includes('/src/services/demo/') ? 'app-modo-demo' : 'app'
+  // null = se queda en el chunk de entrada (index): ahí queda el código propio de la app.
+  if (!id.includes('node_modules')) return /[\/]src[\/]services[\/]demo[\/]/.test(id) ? 'app-modo-demo' : null
   if (id.includes('@supabase')) return 'supabase-js'
   if (/[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react'
   return 'otros-paquetes'
@@ -15,7 +16,13 @@ const grupo = (id) => {
 
 await build({
   logLevel: 'silent',
-  build: { outDir: 'dist-medicion', emptyOutDir: true, rollupOptions: { output: { manualChunks: grupo } } },
+  build: {
+    outDir: 'dist-medicion',
+    emptyOutDir: true,
+    // Vite 8 empaqueta con Rolldown: la opción es output.codeSplitting.groups (manualChunks y
+    // rolldownOptions se ignoraron al probarlos aquí).
+    rollupOptions: { output: { codeSplitting: { groups: [{ name: grupo }] } } },
+  },
 })
 
 const dir = 'dist-medicion/assets'
