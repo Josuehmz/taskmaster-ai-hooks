@@ -4,7 +4,7 @@
 import { render } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { RepositoriesProvider } from '../hooks/RepositoriesContext'
-import { createDemoRepositories, DEMO_USER_ID } from '../services'
+import { createDemoRepositories, DEMO_USER_ID } from '../services/demo'
 import type { Repositories } from '../services/types'
 
 export type { AuthRepository, Repositories } from '../services/types'

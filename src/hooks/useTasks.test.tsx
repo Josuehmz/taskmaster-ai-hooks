@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDemoRepositories } from '../services'
+import { createDemoRepositories } from '../services/demo'
 import { PROJECT_A, PROJECT_B, createFakeTaskRepository, deferred, makeTask } from '../test/helpers'
 import type { Task } from '../types'
 import { RepositoriesProvider } from './RepositoriesContext'

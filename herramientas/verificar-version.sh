@@ -7,7 +7,7 @@ set -u
 cd "$(dirname "$0")/.."
 VERSION="${1:?uso: verificar-version.sh vN}"
 DIR="bitacora/$VERSION"
-SALIDA="$DIR/verificacion.txt"
+SALIDA="${SALIDA:-$DIR/verificacion.txt}"
 BASE="$(git rev-list --max-parents=0 HEAD)"
 [ -d "$DIR/src" ] || { echo "No existe $DIR/src"; exit 1; }
 
@@ -39,6 +39,12 @@ paso() {
   echo "(código de salida: ${PIPESTATUS[0]})"
   echo
 }
+
+# Un .env.local (p. ej. el que apunta al Supabase local para ver la app en el navegador) lo leen
+# Vite y Vitest: contaminaba las pruebas y el build "sin variables" (lo destapó v5). Las variables
+# del proceso mandan sobre los archivos .env, así que se dejan vacías a propósito.
+export VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY=
+[ -f .env.local ] && echo "Aviso: existe .env.local; se ignora (VITE_SUPABASE_* vacías en esta verificación)" >&2
 
 {
   echo "Verificación de $VERSION · $(date '+%Y-%m-%d %H:%M:%S %z') · node $(node -v) · pnpm $(pnpm -v)"

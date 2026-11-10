@@ -1,12 +1,22 @@
 // Composición de la capa de servicios.
 //
 // Este módulo y src/services/supabase/ son los ÚNICOS que conocen src/lib/supabaseClient.ts.
-// El proveedor de datos de src/hooks/DataProvider.tsx llama a createRepositories() una vez; los
-// hooks consumen las interfaces de ./types y los componentes solo consumen hooks.
-import { supabase } from '../lib/supabaseClient'
-import { createDemoRepositories, type DemoOptions } from './demo'
-import { createSupabaseRepositories } from './supabase'
+// RepositoriesProvider (src/hooks/) llama a createRepositories() una vez; los hooks consumen las
+// interfaces de ./types y los componentes solo consumen hooks.
+//
+// Tamaño de bundle (paso 5): cada modo se carga con import() dinámico, así el chunk inicial no
+// lleva ni supabase-js (210 kB, que el modo demo nunca usa) ni el repositorio demo con sus datos
+// simulados (que el modo Supabase nunca usa). Por eso aquí NO hay imports estáticos de ./demo,
+// ./supabase ni ../lib: solo tipos, que se borran al compilar.
+import type { DemoOptions } from './demo'
 import type { Repositories } from './types'
+
+/** true si existen las dos variables (Vite las reemplaza al compilar). */
+export function hasSupabaseConfig(): boolean {
+  const url = import.meta.env.VITE_SUPABASE_URL?.trim()
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
+  return Boolean(url) && Boolean(anonKey)
+}
 
 /**
  * Lee los parámetros que solo valen en modo demo, para poder demostrar los estados:
@@ -28,15 +38,20 @@ export function demoOptionsFromSearch(search: string): DemoOptions {
   }
 }
 
-export function createRepositories(search = ''): Repositories {
+/** Crea los repositorios del modo que corresponda, descargando solo el código de ese modo. */
+export async function createRepositories(search = ''): Promise<Repositories> {
+  if (hasSupabaseConfig()) {
+    const [{ supabase }, { createSupabaseRepositories }] = await Promise.all([
+      import('../lib/supabaseClient'),
+      import('./supabase'),
+    ])
+    if (supabase !== null) return createSupabaseRepositories(supabase)
+  }
   // Sin VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY -> modo demo (la UI lo rotula).
-  return supabase
-    ? createSupabaseRepositories(supabase)
-    : createDemoRepositories(demoOptionsFromSearch(search))
+  const { createDemoRepositories } = await import('./demo')
+  return createDemoRepositories(demoOptionsFromSearch(search))
 }
 
-export { createDemoRepositories, DEMO_USER_ID } from './demo'
-export type { DemoOptions } from './demo'
 export { RepositoryError } from './errors'
 export type { RepositoryErrorCode } from './errors'
 export type {

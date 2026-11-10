@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { createDemoRepositories, DEMO_USER_ID } from '../services'
+import { createDemoRepositories, DEMO_USER_ID } from '../services/demo'
 import type { CommentRepository } from '../services/types'
 import { RepositoriesProvider } from './RepositoriesContext'
 import { useComments } from './useComments'
