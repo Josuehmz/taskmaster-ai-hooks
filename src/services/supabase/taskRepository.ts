@@ -27,7 +27,9 @@ export function createSupabaseTaskRepository(client: TaskMasterClient): TaskRepo
 
     async create(input) {
       assertUuid(input.project_id, 'project_id')
+      if (input.id !== undefined) assertUuid(input.id, 'id')
       // created_by NO va en el payload: default auth.uid() + with check de la política.
+      // id SÍ puede ir: lo genera el hook para que la fila optimista tenga su clave definitiva.
       const { data, error } = await client
         .from('tasks')
         .insert(pickDefined(input, TASK_INSERT_COLUMNS))

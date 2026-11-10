@@ -1,6 +1,6 @@
 // Punto único de importación de las entidades del dominio.
 export type { Comment, CreateCommentInput } from './comment'
-export type { Profile } from './profile'
+export type { Profile, SessionUser } from './profile'
 export type {
   AddMemberInput,
   CreateProjectInput,

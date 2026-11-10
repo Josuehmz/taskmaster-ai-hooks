@@ -3,7 +3,7 @@ import type { TaskMasterClient } from '../../lib/supabaseClient'
 import type { Comment } from '../../types'
 import { RepositoryError, toRepositoryError } from '../errors'
 import type { CommentRepository } from '../types'
-import { assertUuid } from '../validation'
+import { COMMENT_INSERT_COLUMNS, assertUuid, pickDefined } from '../validation'
 import { subscribeToTable } from './realtime'
 import { asRow, asRows, ensureDeleted } from './shared'
 
@@ -26,12 +26,13 @@ export function createSupabaseCommentRepository(client: TaskMasterClient): Comme
 
     async create(input) {
       assertUuid(input.task_id, 'task_id')
+      if (input.id !== undefined) assertUuid(input.id, 'id')
       const body = input.body.trim()
       if (body.length === 0) throw new RepositoryError('validation', 'El comentario está vacío')
       // author_id lo pone la base (default auth.uid() + with check de la política).
       const { data, error } = await client
         .from('comments')
-        .insert({ task_id: input.task_id, body })
+        .insert(pickDefined({ ...input, body }, COMMENT_INSERT_COLUMNS))
         .select(COMMENT_COLUMNS)
         .single()
       if (error) throw toRepositoryError(error)

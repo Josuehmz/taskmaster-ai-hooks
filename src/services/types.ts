@@ -11,6 +11,7 @@ import type {
   Profile,
   Project,
   ProjectMember,
+  SessionUser,
   Task,
   UpdateTaskInput,
 } from '../types'
@@ -71,13 +72,35 @@ export type ProfileRepository = {
   getByIds(ids: readonly string[], signal?: AbortSignal): Promise<Profile[]>
 }
 
+/** Sesión de Supabase Auth detrás de una interfaz (en demo: usuario simulado fijo). */
+export type AuthRepository = {
+  getSession(): Promise<SessionUser | null>
+  /** Escucha los cambios de sesión. Devuelve la función que quita el listener. */
+  onAuthStateChange(listener: (user: SessionUser | null) => void): Unsubscribe
+  signIn(email: string, password: string): Promise<SessionUser>
+  signOut(): Promise<void>
+}
+
+/** Controles que solo existen en modo demo, para poder mostrar los estados en una demo. */
+export type DemoControls = {
+  /**
+   * Hace un cambio como si fuera otro usuario (inserta, actualiza o borra una tarea del
+   * proyecto, en ciclo). El cambio llega a los hooks por el mismo camino que un evento Realtime
+   * remoto. Devuelve una descripción legible de lo que hizo.
+   */
+  simulateRemoteChange(projectId: string): Promise<string>
+}
+
 export type DataMode = 'supabase' | 'demo'
 
 export type Repositories = {
   readonly mode: DataMode
+  readonly auth: AuthRepository
   readonly projects: ProjectRepository
   readonly members: ProjectMemberRepository
   readonly tasks: TaskRepository
   readonly comments: CommentRepository
   readonly profiles: ProfileRepository
+  /** Solo en modo demo. */
+  readonly demo?: DemoControls
 }

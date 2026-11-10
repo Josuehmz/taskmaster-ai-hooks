@@ -6,3 +6,9 @@ export type Profile = {
   readonly display_name: string
   readonly created_at: string
 }
+
+/** Usuario de la sesión (Supabase Auth o usuario simulado del modo demo). */
+export type SessionUser = {
+  readonly id: string
+  readonly email: string | null
+}

@@ -313,13 +313,16 @@ grant select, delete on public.project_members to authenticated;
 grant insert (project_id, user_id, role) on public.project_members to authenticated;
 
 -- tasks: project_id solo al crear (no se mueve una tarea de proyecto).
+-- id se concede en insert (paso 2): el hook lo genera con crypto.randomUUID() para que la fila
+-- optimista tenga su clave definitiva y el eco Realtime no la duplique. El tipo uuid valida el
+-- formato y la PK impide reutilizar un id existente (23505), así que no abre ninguna escalada.
 grant select, delete on public.tasks to authenticated;
-grant insert (project_id, title, description, status, assignee_id) on public.tasks to authenticated;
+grant insert (id, project_id, title, description, status, assignee_id) on public.tasks to authenticated;
 grant update (title, description, status, assignee_id) on public.tasks to authenticated;
 
 -- comments: no se editan.
 grant select, delete on public.comments to authenticated;
-grant insert (task_id, body) on public.comments to authenticated;
+grant insert (id, task_id, body) on public.comments to authenticated;  -- id: mismo motivo que en tasks
 
 -- ════════════════════════════════════════════════════════════════════════════════════════════
 -- 6. Row Level Security

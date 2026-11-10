@@ -117,6 +117,16 @@ ok(!upd.error && upd.data?.status === 'in_progress', 'ana mueve la tarea a in_pr
 const evUpd = await esperarEvento(subBeto.eventos, (e) => e.eventType === 'UPDATE' && e.new?.id === taskId)
 ok(evUpd?.new?.status === 'in_progress', 'beto recibe el UPDATE con el estado nuevo', evUpd ? `old.status=${evUpd.old?.status ?? '(no viene)'}` : 'no llegó')
 
+// --- id generado por el cliente (decisión del paso 2) ---------------------------------------
+const idCliente = crypto.randomUUID()
+const conId = await beto.c.from('tasks').insert({ id: idCliente, project_id: projectId, title: 'Con id del cliente' }).select().single()
+ok(!conId.error && conId.data?.id === idCliente, 'beto crea una tarea con id generado en el cliente (grant insert (id))', conId.error?.message ?? '')
+const repetido = await beto.c.from('tasks').insert({ id: idCliente, project_id: projectId, title: 'Id repetido' })
+ok(!!repetido.error, 'un id repetido se rechaza (no sobrescribe la fila existente)', repetido.error?.message ?? 'se insertó')
+const robarId = await carla.c.from('tasks').insert({ id: crypto.randomUUID(), project_id: projectId, title: 'intrusa con id' })
+ok(!!robarId.error, 'mandar el id no le sirve a carla para entrar al proyecto', robarId.error?.message ?? 'se insertó')
+if (!conId.error) await beto.c.from('tasks').delete().eq('id', idCliente)
+
 // --- Lo que carla no puede hacer -----------------------------------------------------------
 const verCarla = await carla.c.from('tasks').select('id').eq('project_id', projectId)
 ok(verCarla.data?.length === 0, 'carla no ve las tareas del proyecto', JSON.stringify(verCarla.data ?? verCarla.error?.message))

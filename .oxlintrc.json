@@ -5,5 +5,55 @@
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "error"
   },
-  "ignorePatterns": ["bitacora/**", "dist/**", "herramientas/**"]
+  "ignorePatterns": ["bitacora/**", "dist/**", "herramientas/**"],
+  "overrides": [
+    {
+      "files": ["src/components/**", "src/App.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@supabase/supabase-js",
+                "message": "Arquitectura: la UI no usa Supabase; habla con un hook de src/hooks/."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["**/lib", "**/lib/**"],
+                "message": "Arquitectura: la UI no usa el cliente de Supabase (src/lib); usa un hook."
+              },
+              {
+                "group": ["**/services", "**/services/**"],
+                "message": "Arquitectura: la UI no llama servicios; usa useTasks, useComments, useProjectMembers…"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/hooks/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@supabase/supabase-js",
+                "message": "Arquitectura: los hooks dependen de las interfaces de src/services, no de supabase-js."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["**/lib", "**/lib/**"],
+                "message": "Arquitectura: los hooks usan src/services, no el cliente de src/lib."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

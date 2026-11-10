@@ -31,8 +31,9 @@ export function useProjects(): UseProjectsResult {
 
   const createProject = useCallback(
     async (input: CreateProjectInput): Promise<Project> => {
+      // Sin optimismo: el id y la membresía de owner los crea la base (default + trigger).
       const created = await repository.create(input)
-      controls.upsertLocal(created)
+      controls.upsertConfirmed(created)
       return created
     },
     [repository, controls],

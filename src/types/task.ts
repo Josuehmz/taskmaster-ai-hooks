@@ -26,11 +26,16 @@ export type Task = {
 }
 
 /**
- * Entrada para crear una tarea. No incluye id, created_by, created_at ni updated_at:
- * los fija la base (defaults, trigger y política RLS). El servicio, además, copia solo
- * estas claves al payload, porque TypeScript no rechaza propiedades extra de una variable.
+ * Entrada para crear una tarea. No incluye created_by, created_at ni updated_at: los fija la
+ * base (defaults, trigger y política RLS). El servicio, además, copia solo estas claves al
+ * payload, porque TypeScript no rechaza propiedades extra de una variable.
+ *
+ * `id` es opcional y lo genera el HOOK con crypto.randomUUID() (paso 2): así la fila optimista
+ * ya tiene su clave definitiva y el eco Realtime del INSERT se reconcilia por clave aunque llegue
+ * antes que la respuesta HTTP. La base valida el formato (columna uuid) y la unicidad (PK).
  */
 export type CreateTaskInput = {
+  id?: string
   project_id: string
   title: string
   description?: string | null

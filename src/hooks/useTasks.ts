@@ -1,129 +1,127 @@
-// useTasks(projectId): tareas de un proyecto, en tiempo real.
+// useTasks(projectId): tareas de un proyecto, en tiempo real. Hook principal del entregable.
 //
-// Compone el núcleo useRealtimeCollection (carga, suscripción, reconciliación, descarte de
-// respuestas tardías) y le agrega las mutaciones de la entidad. No importa supabase ni src/lib:
-// recibe el TaskRepository por contexto, así funciona igual en modo Supabase y en modo demo.
+// Compone el núcleo useRealtimeCollection (carga, canal Realtime, reconciliación, optimismo con
+// reversión y descarte de respuestas tardías) y le agrega las mutaciones de la entidad. No importa
+// supabase ni src/lib: recibe el TaskRepository por contexto, así funciona igual en modo
+// Supabase y en modo demo, y se prueba con un repositorio falso.
 //
-// ESTADO DE ESTE PASO: las firmas y el contrato son los definitivos. Las mutaciones ya hacen lo
-// mínimo correcto (esperan al servidor y reconcilian por clave); la versión optimista con
-// reversión llega en el siguiente paso y está descrita abajo para que su implementación no
-// cambie la interfaz pública.
-//
-// ─── Actualización optimista con reversión (siguiente paso) ────────────────────────────────
-//   createTask:
-//     1. Se arma una fila temporal con clave `temp:<uuid>` (el id real lo da la base; el cliente
-//        no puede fijarlo) y se pinta con controls.upsertLocal.
-//     2. Al responder el servidor: controls.replaceLocal(tempKey, filaReal), en un solo setState.
-//     3. Si falla: controls.removeLocal(tempKey) y se relanza el error para que la UI lo muestre.
-//   updateTask:
-//     1. previa = controls.getSnapshot().find(id); fin = controls.beginMutation(id).
-//     2. controls.upsertLocal({ ...previa, ...cambios }) pinta el cambio al instante.
-//     3. Éxito: upsertLocal(filaDelServidor) (trae updated_at real del trigger).
-//        Error: upsertLocal(previa) revierte. En ambos casos fin() en un finally.
-//     4. Tras revertir se hace refetch: mientras la clave estaba marcada se ignoraron ecos
-//        ajenos, y la versión previa puede estar desactualizada.
-//   deleteTask:
-//     1. previa = snapshot; fin = beginMutation(id); removeLocal(id).
-//     2. Error: upsertLocal(previa) la devuelve a su lugar (el orden lo da `compare`).
+// ─── Actualización optimista con reversión ─────────────────────────────────────────────────
+//   createTask: el id se genera aquí con crypto.randomUUID(). La fila optimista ya tiene su clave
+//     definitiva, así que la respuesta HTTP y el eco Realtime del INSERT caen sobre la misma fila
+//     (llegue primero el que llegue). Si el servidor falla, la fila se quita.
+//   updateTask: pinta { ...previa, ...cambios } al instante; si falla, vuelve EXACTAMENTE a la
+//     fila previa (la guarda el núcleo dentro del mismo updater).
+//   deleteTask: la quita al instante; si falla, vuelve a su posición (la da `compare`).
+//   En los tres casos el error queda en `mutationError` y la promesa se rechaza.
 //
 // ─── Eco Realtime de las mutaciones propias ────────────────────────────────────────────────
-//   - Toda fila se reconcilia por clave con upsert idempotente: el eco INSERT/UPDATE y la
-//     respuesta HTTP traen la misma clave real, así que aplicar ambos deja una sola fila.
-//   - Mientras una mutación propia está en vuelo (beginMutation), el núcleo ignora los
-//     INSERT/UPDATE de esa clave: un eco intermedio no pisa el valor optimista.
-//   - El eco DELETE de un borrado propio quita una fila que ya no está: no-op.
-//   - Hueco conocido: si el eco INSERT llega ANTES que la respuesta del create, durante ese
-//     intervalo conviven la fila temporal y la real. Se cierra en el siguiente paso reteniendo
-//     los INSERT con created_by = usuario actual mientras haya creates propios en vuelo.
+//   Mientras la clave tiene una mutación en vuelo, el núcleo difiere sus eventos. Al terminar
+//   aplica el último con control de versión (updated_at): el eco es igual a la respuesta y no
+//   cambia nada (ni se anuncia como cambio remoto); un cambio ajeno más nuevo sí gana.
 //
-// ─── Limpieza del canal ────────────────────────────────────────────────────────────────────
-//   El núcleo llama al Unsubscribe que devuelve repository.subscribe; en Supabase eso es
-//   client.removeChannel(channel) (src/services/supabase/realtime.ts), no solo unsubscribe(),
-//   para que el canal salga del cliente y el socket se cierre si no quedan canales. Pasa al
-//   cambiar de projectId y al desmontar; en StrictMode el doble montaje abre y cierra un canal
-//   con nombre único, sin choques de topic.
-//
-// ─── Respuestas tardías ────────────────────────────────────────────────────────────────────
-//   - Cargas: el núcleo aborta la consulta en vuelo (AbortController) y, si igual llega, la
-//     descarta porque su scope ya no coincide con el actual.
-//   - Mutaciones: NO se abortan (la escritura ya pudo aplicarse en la base), pero su resultado
-//     solo toca el estado si controls.isCurrentScope(scopeDeLaLlamada) sigue siendo cierto.
-//     La promesa se resuelve igual para quien la espera.
+// ─── Limpieza y respuestas tardías ─────────────────────────────────────────────────────────
+//   Al cambiar de projectId o desmontar: removeChannel del canal del proyecto anterior, abort de
+//   la carga en vuelo, y ninguna respuesta (de carga o de mutación) toca el estado después.
 import { useCallback } from 'react'
 import type { NewTaskFields, Task, UpdateTaskInput } from '../types'
 import { useRepositories } from './RepositoriesContext'
-import { useRealtimeCollection, type Compare, type KeyOf } from './useRealtimeCollection'
+import {
+  useRealtimeCollection,
+  type Compare,
+  type KeyOf,
+  type RemoteChange,
+  type VersionOf,
+} from './useRealtimeCollection'
 
 export type UseTasksResult = {
   readonly tasks: readonly Task[]
   readonly loading: boolean
-  /** Último error de carga o de tiempo real. Los errores de mutación se lanzan (rechazo). */
+  /** Error de carga o de tiempo real. */
   readonly error: Error | null
-  /** Crea en el proyecto actual. Rechaza si no hay proyecto o si la base lo impide. */
+  /** Error de la última mutación (el cambio optimista ya se revirtió). */
+  readonly mutationError: Error | null
+  /** Último cambio de OTRO usuario que llegó por tiempo real (los ecos propios no cuentan). */
+  readonly lastRemoteChange: RemoteChange<Task> | null
   readonly createTask: (fields: NewTaskFields) => Promise<Task>
   /** Cambia solo los campos presentes (undefined = no tocar). Devuelve la fila del servidor. */
   readonly updateTask: (id: string, patch: UpdateTaskInput) => Promise<Task>
   readonly deleteTask: (id: string) => Promise<void>
-  /** Recarga desde el servidor (también se hace solo al reconectar el canal). */
   readonly refetch: () => Promise<void>
+  readonly clearMutationError: () => void
 }
 
 // Definidos a nivel de módulo: el núcleo los usa como dependencias de sus efectos.
 const taskKey: KeyOf<Task> = (row) => row.id ?? null
 const oldestFirst: Compare<Task> = (a, b) =>
   a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)
+const taskVersion: VersionOf<Task> = (row) => Date.parse(row.updated_at)
 
 /** @param projectId proyecto seleccionado; null = sin proyecto (lista vacía, sin canal). */
 export function useTasks(projectId: string | null): UseTasksResult {
   const { tasks: repository } = useRepositories()
-  const { data, loading, error, refetch, controls } = useRealtimeCollection({
-    scopeId: projectId,
-    source: repository,
-    keyOf: taskKey,
-    compare: oldestFirst,
-  })
+  const { data, loading, error, mutationError, lastRemoteChange, refetch, controls } =
+    useRealtimeCollection({
+      scopeId: projectId,
+      source: repository,
+      keyOf: taskKey,
+      compare: oldestFirst,
+      versionOf: taskVersion,
+    })
 
   const createTask = useCallback(
     async (fields: NewTaskFields): Promise<Task> => {
       if (projectId === null) throw new Error('No hay un proyecto seleccionado')
-      // SIGUIENTE PASO: fila temporal optimista + replaceLocal / removeLocal (ver cabecera).
-      const created = await repository.create({ ...fields, project_id: projectId })
-      if (controls.isCurrentScope(projectId)) controls.upsertLocal(created)
-      return created
+      const id = crypto.randomUUID()
+      const now = new Date().toISOString()
+      const optimistic: Task = {
+        id,
+        project_id: projectId,
+        title: fields.title.trim(),
+        description: fields.description ?? null,
+        status: fields.status ?? 'todo',
+        assignee_id: fields.assignee_id ?? null,
+        created_by: null, // lo pone la base con auth.uid(); llega en la respuesta
+        created_at: now,
+        updated_at: now,
+      }
+      return controls.mutateUpsert(optimistic, () =>
+        repository.create({ ...fields, id, project_id: projectId }),
+      )
     },
     [projectId, repository, controls],
   )
 
   const updateTask = useCallback(
     async (id: string, patch: UpdateTaskInput): Promise<Task> => {
-      const scope = projectId
-      const end = controls.beginMutation(id)
-      try {
-        // SIGUIENTE PASO: upsertLocal({ ...previa, ...patch }) antes de esperar, y revertir.
-        const updated = await repository.update(id, patch)
-        if (controls.isCurrentScope(scope)) controls.upsertLocal(updated)
-        return updated
-      } finally {
-        end()
+      const current = data.find((task) => task.id === id)
+      if (current === undefined) throw new Error('La tarea no está en la lista')
+      const optimistic: Task = {
+        ...current,
+        ...(patch.title === undefined ? {} : { title: patch.title.trim() }),
+        ...(patch.description === undefined ? {} : { description: patch.description }),
+        ...(patch.status === undefined ? {} : { status: patch.status }),
+        ...(patch.assignee_id === undefined ? {} : { assignee_id: patch.assignee_id }),
       }
+      return controls.mutateUpsert(optimistic, () => repository.update(id, patch))
     },
-    [projectId, repository, controls],
+    [data, repository, controls],
   )
 
   const deleteTask = useCallback(
-    async (id: string): Promise<void> => {
-      const scope = projectId
-      const end = controls.beginMutation(id)
-      try {
-        // SIGUIENTE PASO: removeLocal(id) antes de esperar y upsertLocal(previa) si falla.
-        await repository.remove(id)
-        if (controls.isCurrentScope(scope)) controls.removeLocal(id)
-      } finally {
-        end()
-      }
-    },
-    [projectId, repository, controls],
+    (id: string): Promise<void> => controls.mutateRemove(id, () => repository.remove(id)),
+    [repository, controls],
   )
 
-  return { tasks: data, loading, error, createTask, updateTask, deleteTask, refetch }
+  return {
+    tasks: data,
+    loading,
+    error,
+    mutationError,
+    lastRemoteChange,
+    createTask,
+    updateTask,
+    deleteTask,
+    refetch,
+    clearMutationError: controls.clearMutationError,
+  }
 }

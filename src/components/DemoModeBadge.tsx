@@ -1,6 +1,6 @@
 // Insignia del modo demo. Se muestra siempre que la app corre sin Supabase, para que nadie
 // confunda los datos en memoria (que se pierden al recargar) con datos reales.
-// Regla de capas: los componentes solo usan hooks; nunca importan supabase ni src/lib.
+// Es texto estático: no lleva role="status" (no anuncia cambios).
 import { useDataMode } from '../hooks/RepositoriesContext'
 
 export function DemoModeBadge() {
@@ -8,11 +8,10 @@ export function DemoModeBadge() {
   if (mode !== 'demo') return null
   return (
     <span
-      role="status"
       title="Faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY: los datos viven en memoria"
       className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 ring-1 ring-amber-300"
     >
-      Modo demo · datos en memoria
+      MODO DEMO · datos simulados
     </span>
   )
 }

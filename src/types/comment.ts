@@ -9,8 +9,9 @@ export type Comment = {
   readonly created_at: string
 }
 
-/** Crear comentario: author_id, id y created_at los fija la base. */
+/** Crear comentario: author_id y created_at los fija la base; id lo puede generar el hook. */
 export type CreateCommentInput = {
+  id?: string
   task_id: string
   body: string
 }

@@ -1,17 +1,19 @@
 // Repositorios del "modo demo": misma interfaz que los de Supabase, datos en memoria.
 // Se usan cuando faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY, y en las pruebas.
 // Cada llamada a createDemoRepositories() crea un almacén nuevo (aislamiento entre pruebas).
-import type { Comment, Profile, Project, ProjectMember, Task } from '../../types'
+import type { Comment, Profile, Project, ProjectMember, SessionUser, Task } from '../../types'
 import { RepositoryError } from '../errors'
 import type {
+  AuthRepository,
   CommentRepository,
+  DemoControls,
   ProfileRepository,
   ProjectMemberRepository,
   ProjectRepository,
   Repositories,
   TaskRepository,
 } from '../types'
-import { TASK_UPDATE_COLUMNS, pickDefined } from '../validation'
+import { TASK_UPDATE_COLUMNS, assertUuid, pickDefined } from '../validation'
 import { createDemoTable, delay } from './demoTable'
 
 /** Usuario "logueado" del modo demo: hace de auth.uid(). */
@@ -22,6 +24,10 @@ const DEMO_PROJECT_ID = '00000000-0000-4000-8000-000000000101'
 export type DemoOptions = {
   /** Latencia simulada en ms (0 en pruebas). */
   readonly latencyMs?: number
+  /** Todas las cargas (list) fallan: para mostrar el estado de error. */
+  readonly failLoads?: boolean
+  /** Todas las escrituras fallan: para mostrar la reversión del cambio optimista. */
+  readonly failWrites?: boolean
 }
 
 const byCreatedAt = (a: { created_at: string }, b: { created_at: string }) =>
@@ -35,6 +41,20 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
   const latency = options.latencyMs ?? 250
   const seededAt = new Date(Date.now() - 60_000).toISOString()
   const now = () => new Date().toISOString()
+
+  async function readDelay(signal?: AbortSignal): Promise<void> {
+    await delay(latency, signal)
+    if (options.failLoads) {
+      throw new RepositoryError('unknown', 'Error simulado de red al cargar (modo demo, ?demo=error)')
+    }
+  }
+
+  async function writeDelay(): Promise<void> {
+    await delay(Math.min(latency, 600))
+    if (options.failWrites) {
+      throw new RepositoryError('unknown', 'Error simulado al guardar (modo demo, ?demo=falla-guardar)')
+    }
+  }
 
   const profileRows: readonly Profile[] = [
     { id: DEMO_USER_ID, display_name: 'Usuario demo', created_at: seededAt },
@@ -137,15 +157,23 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
     }
   }
 
+  /** Igual que la PK de la base: un id repetido es un error, no una sobrescritura. */
+  function newId(requested: string | undefined, exists: (id: string) => boolean): string {
+    if (requested === undefined) return crypto.randomUUID()
+    assertUuid(requested, 'id')
+    if (exists(requested)) throw new RepositoryError('validation', 'Ya existe un registro con ese id')
+    return requested
+  }
+
   const projectRepository: ProjectRepository = {
     async list(_scope, signal) {
-      await delay(latency, signal)
+      await readDelay(signal)
       return projects
         .list((project) => members.get(memberKey(project.id, DEMO_USER_ID)) !== undefined)
         .toSorted((a, b) => byCreatedAt(b, a))
     },
     async create(input) {
-      await delay(latency)
+      await writeDelay()
       const name = requireTitle(input.name)
       const createdAt = now()
       const project = projects.insert({
@@ -163,12 +191,12 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
 
   const memberRepository: ProjectMemberRepository = {
     async list(projectId, signal) {
-      await delay(latency, signal)
+      await readDelay(signal)
       requireMember(projectId)
       return members.list((member) => member.project_id === projectId).toSorted(byCreatedAt)
     },
     async add(input) {
-      await delay(latency)
+      await writeDelay()
       requireOwner(input.project_id)
       if (!profileRows.some((profile) => profile.id === input.user_id)) {
         throw new RepositoryError('validation', 'El usuario no existe')
@@ -184,7 +212,7 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
       })
     },
     async remove(projectId, userId) {
-      await delay(latency)
+      await writeDelay()
       if (userId !== DEMO_USER_ID) requireOwner(projectId)
       const target = members.get(memberKey(projectId, userId))
       if (target === undefined) throw new RepositoryError('not_found', 'El miembro no existe')
@@ -197,31 +225,32 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
     subscribe: (projectId, onChange, onStatus) => members.subscribe(projectId, onChange, onStatus),
   }
 
+  function insertTask(projectId: string, fields: Omit<Task, 'project_id' | 'created_at' | 'updated_at'>): Task {
+    const createdAt = now()
+    return tasks.insert({ ...fields, project_id: projectId, created_at: createdAt, updated_at: createdAt })
+  }
+
   const taskRepository: TaskRepository = {
     async list(projectId, signal) {
-      await delay(latency, signal)
+      await readDelay(signal)
       requireMember(projectId)
       return tasks.list((task) => task.project_id === projectId).toSorted(byCreatedAt)
     },
     async create(input) {
-      await delay(latency)
+      await writeDelay()
       requireMember(input.project_id)
       requireAssignee(input.project_id, input.assignee_id)
-      const createdAt = now()
-      return tasks.insert({
-        id: crypto.randomUUID(),
-        project_id: input.project_id,
+      return insertTask(input.project_id, {
+        id: newId(input.id, (id) => tasks.get(id) !== undefined),
         title: requireTitle(input.title),
         description: input.description ?? null,
         status: input.status ?? 'todo',
         assignee_id: input.assignee_id ?? null,
         created_by: DEMO_USER_ID,
-        created_at: createdAt,
-        updated_at: createdAt,
       })
     },
     async update(id, patch) {
-      await delay(latency)
+      await writeDelay()
       const current = tasks.get(id)
       if (current === undefined) throw new RepositoryError('not_found', 'La tarea no existe')
       requireMember(current.project_id)
@@ -234,7 +263,7 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
       return tasks.replace({ ...current, ...changes, title, updated_at: now() })
     },
     async remove(id) {
-      await delay(latency)
+      await writeDelay()
       const current = tasks.get(id)
       if (current === undefined) throw new RepositoryError('not_found', 'La tarea no existe')
       requireMember(current.project_id)
@@ -253,17 +282,17 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
 
   const commentRepository: CommentRepository = {
     async list(taskId, signal) {
-      await delay(latency, signal)
+      await readDelay(signal)
       requireTaskMember(taskId)
       return comments.list((comment) => comment.task_id === taskId).toSorted(byCreatedAt)
     },
     async create(input) {
-      await delay(latency)
+      await writeDelay()
       requireTaskMember(input.task_id)
       const body = input.body.trim()
       if (body.length === 0) throw new RepositoryError('validation', 'El comentario está vacío')
       return comments.insert({
-        id: crypto.randomUUID(),
+        id: newId(input.id, (id) => comments.get(id) !== undefined),
         task_id: input.task_id,
         author_id: DEMO_USER_ID,
         body,
@@ -271,7 +300,7 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
       })
     },
     async remove(id) {
-      await delay(latency)
+      await writeDelay()
       const current = comments.get(id)
       if (current === undefined) throw new RepositoryError('not_found', 'El comentario no existe')
       if (current.author_id !== DEMO_USER_ID) {
@@ -284,17 +313,61 @@ export function createDemoRepositories(options: DemoOptions = {}): Repositories 
 
   const profileRepository: ProfileRepository = {
     async getByIds(ids, signal) {
-      await delay(latency, signal)
+      await readDelay(signal)
       return profileRows.filter((profile) => ids.includes(profile.id))
+    },
+  }
+
+  const demoUser: SessionUser = { id: DEMO_USER_ID, email: 'demo@taskmaster.local' }
+  const authRepository: AuthRepository = {
+    getSession: async () => demoUser,
+    // En demo la sesión nunca cambia; igual se devuelve una limpieza para cumplir el contrato.
+    onAuthStateChange: () => () => {},
+    signIn: async () => demoUser,
+    signOut: async () => {},
+  }
+
+  // "Otro usuario" del modo demo: escribe directo en las tablas, sin pasar por el hook, así que
+  // el cambio solo llega a la UI como evento de tiempo real (igual que en Supabase).
+  let remoteStep = 0
+  const remoteTitles = ['Revisar políticas RLS', 'Medir el bundle', 'Preparar la demo']
+  const demoControls: DemoControls = {
+    async simulateRemoteChange(projectId) {
+      requireMember(projectId)
+      const own = tasks.list((t) => t.project_id === projectId && t.created_by === DEMO_TEAMMATE_ID)
+      const step = remoteStep % 3
+      remoteStep += 1
+      const target = own.at(-1)
+      if (step === 1 && target !== undefined) {
+        const status = target.status === 'done' ? 'todo' : target.status === 'todo' ? 'in_progress' : 'done'
+        tasks.replace({ ...target, status, updated_at: now() })
+        return `Compañero demo movió «${target.title}»`
+      }
+      if (step === 2 && target !== undefined) {
+        tasks.remove(target.id)
+        return `Compañero demo borró «${target.title}»`
+      }
+      const title = remoteTitles[remoteStep % remoteTitles.length] ?? 'Tarea remota'
+      insertTask(projectId, {
+        id: crypto.randomUUID(),
+        title,
+        description: null,
+        status: 'todo',
+        assignee_id: DEMO_TEAMMATE_ID,
+        created_by: DEMO_TEAMMATE_ID,
+      })
+      return `Compañero demo creó «${title}»`
     },
   }
 
   return {
     mode: 'demo',
+    auth: authRepository,
     projects: projectRepository,
     members: memberRepository,
     tasks: taskRepository,
     comments: commentRepository,
     profiles: profileRepository,
+    demo: demoControls,
   }
 }

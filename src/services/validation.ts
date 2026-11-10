@@ -1,5 +1,11 @@
 // Validaciones y listas blancas compartidas por los repositorios real y demo.
-import type { AddMemberInput, CreateProjectInput, CreateTaskInput, UpdateTaskInput } from '../types'
+import type {
+  AddMemberInput,
+  CreateCommentInput,
+  CreateProjectInput,
+  CreateTaskInput,
+  UpdateTaskInput,
+} from '../types'
 import { RepositoryError } from './errors'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -15,6 +21,7 @@ export function assertUuid(value: string, label: string): void {
 // Un objeto con `id` o `created_by` de más pasa el chequeo de tipos de TypeScript si viene en
 // una variable; por eso el servicio copia solo estas claves al payload.
 export const TASK_INSERT_COLUMNS = [
+  'id',
   'project_id',
   'title',
   'description',
@@ -28,6 +35,12 @@ export const TASK_UPDATE_COLUMNS = [
   'status',
   'assignee_id',
 ] as const satisfies readonly (keyof UpdateTaskInput)[]
+
+export const COMMENT_INSERT_COLUMNS = [
+  'id',
+  'task_id',
+  'body',
+] as const satisfies readonly (keyof CreateCommentInput)[]
 
 export const PROJECT_INSERT_COLUMNS = [
   'name',

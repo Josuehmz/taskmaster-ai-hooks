@@ -1,16 +1,9 @@
-// useProjectMembers(projectId): miembros de un proyecto, en tiempo real.
+// useProjectMembers(projectId): miembros de un proyecto (entidad Usuarios), en tiempo real.
 //
 // Compone el mismo núcleo que useTasks y useComments. La clave de una membresía es compuesta
 // (project_id, user_id): es la clave primaria de la tabla y, por tanto, lo único que traen los
 // eventos DELETE con RLS activo, así que basta para reconciliarlos.
-//
-// Siguiente paso (sin cambiar la firma):
-//   - Unir con perfiles (ProfileRepository.getByIds) para mostrar display_name; se hará en un
-//     hook aparte (useProfiles) con caché por id, para no recargar perfiles en cada evento.
-//   - removeMember optimista con reversión; addMember sin optimismo (si el usuario no existe o
-//     ya es miembro, la base lo rechaza y no vale la pena pintar algo que se va a revertir).
-//   - Si el usuario actual se quita a sí mismo, la UI debe salir del proyecto: tras el DELETE
-//     las políticas RLS ya no le dejan leer nada de él.
+// Los nombres visibles salen de useProfiles(ids), que tiene su propia caché por id.
 import { useCallback } from 'react'
 import type { ProjectMember, ProjectRole } from '../types'
 import { useRepositories } from './RepositoriesContext'
@@ -20,9 +13,10 @@ export type UseProjectMembersResult = {
   readonly members: readonly ProjectMember[]
   readonly loading: boolean
   readonly error: Error | null
-  /** Solo un owner puede agregar (política RLS). role por defecto: 'member'. */
+  readonly mutationError: Error | null
+  /** Solo un owner puede agregar (política RLS). Sin optimismo: la base valida usuario y duplicado. */
   readonly addMember: (userId: string, role?: ProjectRole) => Promise<ProjectMember>
-  /** Un owner quita a cualquiera; un miembro solo a sí mismo. Nunca al último owner. */
+  /** Optimista con reversión. Un owner quita a cualquiera; un miembro solo a sí mismo. */
   readonly removeMember: (userId: string) => Promise<void>
   readonly refetch: () => Promise<void>
 }
@@ -45,7 +39,7 @@ const ownersFirst: Compare<ProjectMember> = (a, b) =>
 /** @param projectId proyecto seleccionado; null = ninguno (lista vacía, sin canal). */
 export function useProjectMembers(projectId: string | null): UseProjectMembersResult {
   const { members: repository } = useRepositories()
-  const { data, loading, error, refetch, controls } = useRealtimeCollection({
+  const { data, loading, error, mutationError, refetch, controls } = useRealtimeCollection({
     scopeId: projectId,
     source: repository,
     keyOf: memberKey,
@@ -61,7 +55,7 @@ export function useProjectMembers(projectId: string | null): UseProjectMembersRe
           ? { project_id: projectId, user_id: userId }
           : { project_id: projectId, user_id: userId, role },
       )
-      if (controls.isCurrentScope(projectId)) controls.upsertLocal(added)
+      controls.upsertConfirmed(added)
       return added
     },
     [projectId, repository, controls],
@@ -70,17 +64,12 @@ export function useProjectMembers(projectId: string | null): UseProjectMembersRe
   const removeMember = useCallback(
     async (userId: string): Promise<void> => {
       if (projectId === null) throw new Error('No hay un proyecto seleccionado')
-      const key = memberKeyOf(projectId, userId)
-      const end = controls.beginMutation(key)
-      try {
-        await repository.remove(projectId, userId)
-        if (controls.isCurrentScope(projectId)) controls.removeLocal(key)
-      } finally {
-        end()
-      }
+      await controls.mutateRemove(memberKeyOf(projectId, userId), () =>
+        repository.remove(projectId, userId),
+      )
     },
     [projectId, repository, controls],
   )
 
-  return { members: data, loading, error, addMember, removeMember, refetch }
+  return { members: data, loading, error, mutationError, addMember, removeMember, refetch }
 }

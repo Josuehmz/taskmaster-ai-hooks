@@ -1,0 +1,666 @@
+Verificación de v2 · 2026-11-10 13:55:54 -0500 · node v24.15.0 · pnpm 11.24.0
+
+### TypeScript
+$ pnpm exec tsc -b --noEmit
+(código de salida: 0)
+
+### Lint (oxlint)
+$ pnpm exec oxlint --deny-warnings
+bitacora/v2/src/components/CommentsPanel.tsx:32:22: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+src/components/CommentsPanel.tsx:32:22: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+bitacora/v2/src/components/TaskBoard.tsx:86:14: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+bitacora/v2/src/components/Workspace.tsx:41:15: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+bitacora/v2/src/components/Workspace.tsx:68:22: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+bitacora/v2/src/components/TaskBoard.test.tsx:5:1: error eslint(no-restricted-imports): '../services' import is restricted from being used by a pattern. help: Arquitectura: la UI no llama servicios; usa useTasks, useComments, useProjectMembers…
+bitacora/v2/src/components/MembersList.tsx:18:22: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+src/components/TaskBoard.test.tsx:5:1: error eslint(no-restricted-imports): '../services' import is restricted from being used by a pattern. help: Arquitectura: la UI no llama servicios; usa useTasks, useComments, useProjectMembers…
+src/components/Workspace.tsx:41:15: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+src/components/Workspace.tsx:68:22: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+src/components/MembersList.tsx:18:22: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+src/components/TaskBoard.tsx:86:14: warning jsx-a11y(prefer-tag-over-role): Prefer `output` over `role` attribute `status`. help: Replace HTML elements with `role` attribute `status` to corresponding semantic HTML tag `output`.
+(código de salida: 1)
+
+### Pruebas (Vitest)
+$ pnpm exec vitest run
+
+ RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
+
+ ❯ src/components/TaskBoard.test.tsx (3 tests | 2 failed) 1424ms
+   ❯ TaskBoard (ejemplo de implementación) (3)
+     × valida el título vacío y crea una tarea 121ms
+     × anuncia el cambio de otro usuario que llega por tiempo real 1080ms
+ ❯ src/hooks/useTasks.test.tsx (13 tests | 1 failed) 2027ms
+   ❯ useTasks · carga (3)
+     × expone el error de carga y se recupera con refetch 1052ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/TaskBoard.test.tsx > TaskBoard (ejemplo de implementación) > valida el título vacío y crea una tarea
+TestingLibraryElementError: Found multiple elements with the role "button" and name "Crear"
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+<button
+  class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-800"
+  type="submit"
+>
+  Crear
+</button>
+
+Ignored nodes: comments, script, style
+<button
+  class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-800"
+  type="submit"
+>
+  Crear
+</button>
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="grid gap-4 lg:grid-cols-[1fr_20rem]"
+    >
+      <section
+        aria-labelledby="tareas-titulo"
+        class="flex flex-col gap-4"
+      >
+        <h2
+          class="text-lg font-semibold text-slate-900"
+          id="tareas-titulo"
+        >
+          Tareas
+        </h2>
+        <form
+          class="flex flex-col gap-1"
+          novalidate=""
+        >
+          <label
+            class="text-sm font-medium text-slate-700"
+            for="_r_0_"
+          >
+            Nueva tarea
+          </label>
+          <div
+            class="flex gap-2"
+          >
+            <input
+              aria-invalid="false"
+              class="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-indigo-600"
+              id="_r_0_"
+              placeholder="Ej.: Revisar las políticas RLS"
+              value=""
+            />
+            <button
+              class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-800"
+              type="submit"
+            >
+              Crear
+            </button>
+          </div>
+        </form>
+        <p
+          aria-live="polite"
+          class="min-h-5 text-sm text-emerald-800"
+        />
+        <div
+          class="grid gap-3 md:grid-cols-3"
+        >
+          <section
+            aria-label="Por hacer"
+            class="flex flex-col gap-2 rounded-lg bg-slate-100 p-2"
+          >
+            <h3
+              class="px-1 text-sm font-semibold text-slate-700"
+            >
+              Por hacer
+               
+              <span
+                class="font-normal text-slate-500"
+              >
+                (
+                0
+                )
+              </span>
+            </h3>
+            <ul
+              class="flex flex-col gap-2"
+            />
+          </section>
+          <section
+            aria-label="En curso"
+            class="flex flex-col gap-2 rounded-lg bg-slate-100 p-2"
+          >
+            <h3
+              class="px-1 text-sm font-semibold text-slate-700"
+            >
+              En curso
+               
+              <span
+                class="font-normal text-slate-500"
+              >
+                (
+                1
+                )
+              </span>
+            </h3>
+            <ul
+              class="flex flex-col gap-2"
+            >
+              <li
+                class="flex flex-col gap-2 rounded-md border bg-white p-3 shadow-sm border-slate-200"
+              >
+                <p
+                  class="font-medium break-words text-slate-900"
+                >
+                  Encapsular Supabase en hooks
+                </p>
+                <p
+                  class="text-xs text-slate-500"
+                >
+                  Responsable: 
+                  Compañero demo
+                </p>
+                <div
+                  class="flex flex-wrap items-center gap-2"
+                >
+                  <label
+                    class="sr-only"
+                    for="_r_2_"
+                  >
+                    Estado de «
+                    Encapsular Supabase en hooks
+                    »
+                  </label>
+                  <select
+                    class="rounded border border-slate-300 bg-white px-2 py-1 text-xs focus-visible:outline-2 focus-visible:outline-indigo-600"
+                    id="_r_2_"
+                  >
+                    <option
+                      value="todo"
+                    >
+                      Por hacer
+                    </option>
+                    <option
+                      value="in_progress"
+                    >
+                      En curso
+                    </option>
+                    <option
+                      value="done"
+                    >
+                      Hecha
+                    </option>
+                  </select>
+                  <button
+                    aria-pressed="false"
+                    class="rounded px-2 py-1 text-xs text-indigo-700 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-600"
+                    type="button"
+                  >
+                    Comentarios
+                  </button>
+                  <button
+                    aria-label="Borrar «Encapsular Supabase en hooks»"
+                    class="ml-auto rounded px-2 py-1 text-xs text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-red-600"
+                    type="button"
+                  >
+                    Borrar
+                  </button>
+                </div>
+              </li>
+            </ul>
+          </section>
+          <section
+            aria-label="Hecha"
+            class="flex flex-col gap-2 rounded-lg bg-slate-100 p-2"
+          >
+            <h3
+              class="px-1 text-sm f...
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:20:35
+ ❯ getMultipleElementsFoundError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:23:10
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:55:13
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/TaskBoard.test.tsx:28:28
+     26|     renderBoard()
+     27|     await screen.findByText('Encapsular Supabase en hooks')
+     28|     fireEvent.click(screen.getByRole('button', { name: 'Crear' }))
+       |                            ^
+     29|     expect(screen.getByText('Escribe un título para la tarea.')).toBeT…
+     30|     fireEvent.change(screen.getByLabelText('Nueva tarea'), { target: {…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/components/TaskBoard.test.tsx > TaskBoard (ejemplo de implementación) > anuncia el cambio de otro usuario que llega por tiempo real
+TestingLibraryElementError: Found multiple elements with the text: Encapsular Supabase en hooks
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+<p
+  class="font-medium break-words text-slate-900"
+>
+  Encapsular Supabase en hooks
+</p>
+
+Ignored nodes: comments, script, style
+<p
+  class="font-medium break-words text-slate-900"
+>
+  Encapsular Supabase en hooks
+</p>
+
+Ignored nodes: comments, script, style
+<p
+  class="font-medium break-words text-slate-900"
+>
+  Encapsular Supabase en hooks
+</p>
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="grid gap-4 lg:grid-cols-[1fr_20rem]"
+    >
+      <section
+        aria-labelledby="tareas-titulo"
+        class="flex flex-col gap-4"
+      >
+        <h2
+          class="text-lg font-semibold text-slate-900"
+          id="tareas-titulo"
+        >
+          Tareas
+        </h2>
+        <form
+          class="flex flex-col gap-1"
+          novalidate=""
+        >
+          <label
+            class="text-sm font-medium text-slate-700"
+            for="_r_0_"
+          >
+            Nueva tarea
+          </label>
+          <div
+            class="flex gap-2"
+          >
+            <input
+              aria-invalid="false"
+              class="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-indigo-600"
+              id="_r_0_"
+              placeholder="Ej.: Revisar las políticas RLS"
+              value=""
+            />
+            <button
+              class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-800"
+              type="submit"
+            >
+              Crear
+            </button>
+          </div>
+        </form>
+        <p
+          aria-live="polite"
+          class="min-h-5 text-sm text-emerald-800"
+        />
+        <div
+          class="grid gap-3 md:grid-cols-3"
+        >
+          <section
+            aria-label="Por hacer"
+            class="flex flex-col gap-2 rounded-lg bg-slate-100 p-2"
+          >
+            <h3
+              class="px-1 text-sm font-semibold text-slate-700"
+            >
+              Por hacer
+               
+              <span
+                class="font-normal text-slate-500"
+              >
+                (
+                0
+                )
+              </span>
+            </h3>
+            <ul
+              class="flex flex-col gap-2"
+            />
+          </section>
+          <section
+            aria-label="En curso"
+            class="flex flex-col gap-2 rounded-lg bg-slate-100 p-2"
+          >
+            <h3
+              class="px-1 text-sm font-semibold text-slate-700"
+            >
+              En curso
+               
+              <span
+                class="font-normal text-slate-500"
+              >
+                (
+                1
+                )
+              </span>
+            </h3>
+            <ul
+              class="flex flex-col gap-2"
+            >
+              <li
+                class="flex flex-col gap-2 rounded-md border bg-white p-3 shadow-sm border-slate-200"
+              >
+                <p
+                  class="font-medium break-words text-slate-900"
+                >
+                  Encapsular Supabase en hooks
+                </p>
+                <p
+                  class="text-xs text-slate-500"
+                >
+                  Responsable: 
+                  Compañero demo
+                </p>
+                <div
+                  class="flex flex-wrap items-center gap-2"
+                >
+                  <label
+                    class="sr-only"
+                    for="_r_2_"
+                  >
+                    Estado de «
+                    Encapsular Supabase en hooks
+                    »
+                  </label>
+                  <select
+                    class="rounded border border-slate-300 bg-white px-2 py-1 text-xs focus-visible:outline-2 focus-visible:outline-indigo-600"
+                    id="_r_2_"
+                  >
+                    <option
+                      value="todo"
+                    >
+                      Por hacer
+                    </option>
+                    <option
+                      value="in_progress"
+                    >
+                      En curso
+                    </option>
+                    <option
+                      value="done"
+                    >
+                      Hecha
+                    </option>
+                  </select>
+                  <button
+                    aria-pressed="false"
+                    class="rounded px-2 py-1 text-xs text-indigo-700 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-600"
+                    type="button"
+                  >
+                    Comentarios
+                  </button>
+                  <button
+                    aria-label="Borrar «Encapsular Supabase en hooks»"
+                    class="ml-auto rounded px-2 py-1 text-xs text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-red-600"
+                    type="button"
+                  >
+                    Borrar
+                  </button>
+                </div>
+              </li>
+            </ul>
+          </section>
+          <section
+            aria-label="Hecha"
+            class="flex flex-col gap-2 rounded-lg bg-slate-100 p-2"
+          >
+            <h3
+              class="px-1 text-sm f...
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="grid gap-4 lg:grid-cols-[1fr_20rem]"
+    >
+      <section
+        aria-labelledby="tareas-titulo"
+        class="flex flex-col gap-4"
+      >
+        <h2
+          class="text-lg font-semibold text-slate-900"
+          id="tareas-titulo"
+        >
+          Tareas
+        </h2>
+        <form
+          class="flex flex-col gap-1"
+          novalidate=""
+        >
+          <label
+            class="text-sm font-medium text-slate-700"
+            for="_r_0_"
+          >
+            Nueva tarea
+          </label>
+          <div
+            class="flex gap-2"
+          >
+            <input
+              aria-invalid="false"
+              class="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-indigo-600"
+              id="_r_0_"
+              placeholder="Ej.: Revisar las políticas RLS"
+              value=""
+            />
+            <button
+              class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-800"
+              type="submit"
+            >
+              Crear
+            </button>
+          </div>
+        </form>
+        <p
+          aria-live="polite"
+          class="min-h-5 text-sm text-emerald-800"
+        />
+        <div
+          class="grid gap-3 md:grid-cols-3"
+        >
+          <section
+            aria-label="Por hacer"
+            class="flex flex-col gap-2 rounded-lg bg-slate-100 p-2"
+          >
+            <h3
+              class="px-1 text-sm font-semibold text-slate-700"
+            >
+              Por hacer
+               
+              <span
+                class="font-normal text-slate-500"
+              >
+                (
+                0
+                )
+              </span>
+            </h3>
+            <ul
+              class="flex flex-col gap-2"
+            />
+          </section>
+          <section
+            aria-label="En curso"
+            class="flex flex-col gap-2 rounded-lg bg-slate-100 p-2"
+          >
+            <h3
+              class="px-1 text-sm font-semibold text-slate-700"
+            >
+              En curso
+               
+              <span
+                class="font-normal text-slate-500"
+              >
+                (
+                1
+                )
+              </span>
+            </h3>
+            <ul
+              class="flex flex-col gap-2"
+            >
+              <li
+                class="flex flex-col gap-2 rounded-md border bg-white p-3 shadow-sm border-slate-200"
+              >
+                <p
+                  class="font-medium break-words text-slate-900"
+                >
+                  Encapsular Supabase en hooks
+                </p>
+                <p
+                  class="text-xs text-slate-500"
+                >
+                  Responsable: 
+                  Compañero demo
+                </p>
+                <div
+                  class="flex flex-wrap items-center gap-2"
+                >
+                  <label
+                    class="sr-only"
+                    for="_r_2_"
+                  >
+                    Estado de «
+                    Encapsular Supabase en hooks
+                    »
+                  </label>
+                  <select
+                    class="rounded border border-slate-300 bg-white px-2 py-1 text-xs focus-visible:outline-2 focus-visible:outline-indigo-600"
+                    id="_r_2_"
+                  >
+                    <option
+                      value="todo"
+                    >
+                      Por hacer
+                    </option>
+                    <option
+                      value="in_progress"
+                    >
+                      En curso
+                    </option>
+                    <option
+                      value="done"
+                    >
+                      Hecha
+                    </option>
+                  </select>
+                  <button
+                    aria-pressed="false"
+                    class="rounded px-2 py-1 text-xs text-indigo-700 hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-indigo-600"
+                    type="button"
+                  >
+                    Comentarios
+                  </button>
+                  <button
+                    aria-label="Borrar «Encapsular Supabase en hooks»"
+                    class="ml-auto rounded px-2 py-1 text-xs text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-red-600"
+                    type="button"
+                  >
+                    Borrar
+                  </button>
+                </div>
+              </li>
+            </ul>
+          </section>
+          <section
+            aria-label="Hecha"
+            class="flex flex-col gap-2 rounded-lg bg-slate-100 p-2"
+          >
+            <h3
+              class="px-1 text-sm f...
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/components/TaskBoard.test.tsx:37:18
+     35|   it('anuncia el cambio de otro usuario que llega por tiempo real', as…
+     36|     renderBoard()
+     37|     await screen.findByText('Encapsular Supabase en hooks')
+       |                  ^
+     38|     fireEvent.click(screen.getByRole('button', { name: 'Simular cambio…
+     39|     await waitFor(() => expect(screen.getByText(/En tiempo real: Otro …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/hooks/useTasks.test.tsx > useTasks · carga > expone el error de carga y se recupera con refetch
+AssertionError: expected undefined to be 'sin red' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div />
+    <div />
+  </body>
+</html>
+
+- Expected:
+"sin red"
+
++ Received:
+undefined
+
+ ❯ src/hooks/useTasks.test.tsx:45:68
+     43|     hook.rerender({ id: PROJECT_B })
+     44|     hook.rerender({ id: PROJECT_A })
+     45|     await waitFor(() => expect(hook.result.current.error?.message).toB…
+       |                                                                    ^
+     46|     expect(hook.result.current.loading).toBe(false)
+     47|     await act(() => hook.result.current.refetch())
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed | 4 passed (6)
+      Tests  3 failed | 26 passed (29)
+   Start at  13:56:16
+   Duration  17.61s (environment 65%, import 22%, transform 7%, tests 5%)
+
+(código de salida: 1)
+
+### Build sin variables de entorno
+$ pnpm exec vite build
+vite v8.3.7 building client environment for production...
+transforming...
+✓ 94 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.44 kB │ gzip:   0.30 kB
+dist/assets/index-C-bXQT6u.css   16.98 kB │ gzip:   4.30 kB
+dist/assets/index-BKxXLutx.js   473.78 kB │ gzip: 134.03 kB
+
+✓ built in 1.23s
+(código de salida: 0)
+
+### Build con variables de prueba (valores falsos)
+$ pnpm exec vite build
+vite v8.3.7 building client environment for production...
+transforming...
+✓ 94 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.44 kB │ gzip:   0.30 kB
+dist/assets/index-C-bXQT6u.css   16.98 kB │ gzip:   4.30 kB
+dist/assets/index-fPJ8frIV.js   473.83 kB │ gzip: 134.06 kB
+
+✓ built in 1.22s
+(código de salida: 0)
+
