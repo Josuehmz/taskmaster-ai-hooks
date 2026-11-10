@@ -930,3 +930,15 @@ index 0000000..ae6e1b4
 +afterEach(() => {
 +  cleanup()
 +})
+diff --git a/C:/Users/josue/AppData/Local/hermes/profiles/rogelio/cache/scratch/vite.config.base.ts b/bitacora/v3/vite.config.ts
+index c685949..dcb28e7 100644
+--- a/C:/Users/josue/AppData/Local/hermes/profiles/rogelio/cache/scratch/vite.config.base.ts
++++ b/bitacora/v3/vite.config.ts
+@@ -12,5 +12,7 @@ export default defineConfig({
+     // fijos que Vitest espera a que arranque el worker, y la corrida fallaba sin ejecutar pruebas.
+     pool: 'threads',
+     include: ['src/**/*.test.{ts,tsx}'],
++    // Sin `globals`, Testing Library no registra su limpieza automática: la hace este archivo.
++    setupFiles: ['src/test/setup.ts'],
+   },
+ })
