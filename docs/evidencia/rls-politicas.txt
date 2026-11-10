@@ -1,0 +1,77 @@
+Políticas, privilegios y Realtime leídos de la base del Supabase LOCAL tras aplicar supabase/migrations · 2026-11-10 14:48:48 -0500
+Comando: docker exec supabase_db_taskmaster-ai-hooks psql -U postgres -c <consulta>
+
+$ select tablename, rowsecurity as rls from pg_tables where schemaname='public' order by 1;
+    tablename    | rls 
+-----------------+-----
+ comments        | t
+ profiles        | t
+ project_members | t
+ projects        | t
+ tasks           | t
+(5 rows)
+
+$ select tablename, policyname, cmd, roles::text, qual, with_check from pg_policies where schemaname='public' order by tablename, cmd;
+    tablename    |       policyname       |  cmd   |      roles      |                                   qual                                    |                                   with_check                                   
+-----------------+------------------------+--------+-----------------+---------------------------------------------------------------------------+--------------------------------------------------------------------------------
+ comments        | comments_delete        | DELETE | {authenticated} | ((author_id = ( SELECT auth.uid() AS uid)) AND can_access_task(task_id))  | 
+ comments        | comments_insert        | INSERT | {authenticated} |                                                                           | ((author_id = ( SELECT auth.uid() AS uid)) AND can_access_task(task_id))
+ comments        | comments_select        | SELECT | {authenticated} | can_access_task(task_id)                                                  | 
+ profiles        | profiles_select        | SELECT | {authenticated} | ((id = ( SELECT auth.uid() AS uid)) OR shares_project_with(id))           | 
+ profiles        | profiles_update_own    | UPDATE | {authenticated} | (id = ( SELECT auth.uid() AS uid))                                        | (id = ( SELECT auth.uid() AS uid))
+ project_members | project_members_delete | DELETE | {authenticated} | ((user_id = ( SELECT auth.uid() AS uid)) OR is_project_owner(project_id)) | 
+ project_members | project_members_insert | INSERT | {authenticated} |                                                                           | is_project_owner(project_id)
+ project_members | project_members_select | SELECT | {authenticated} | is_project_member(project_id)                                             | 
+ projects        | projects_delete        | DELETE | {authenticated} | is_project_owner(id)                                                      | 
+ projects        | projects_insert        | INSERT | {authenticated} |                                                                           | (created_by = ( SELECT auth.uid() AS uid))
+ projects        | projects_select        | SELECT | {authenticated} | ((created_by = ( SELECT auth.uid() AS uid)) OR is_project_member(id))     | 
+ projects        | projects_update        | UPDATE | {authenticated} | is_project_owner(id)                                                      | is_project_owner(id)
+ tasks           | tasks_delete           | DELETE | {authenticated} | is_project_member(project_id)                                             | 
+ tasks           | tasks_insert           | INSERT | {authenticated} |                                                                           | ((created_by = ( SELECT auth.uid() AS uid)) AND is_project_member(project_id))
+ tasks           | tasks_select           | SELECT | {authenticated} | is_project_member(project_id)                                             | 
+ tasks           | tasks_update           | UPDATE | {authenticated} | is_project_member(project_id)                                             | is_project_member(project_id)
+(16 rows)
+
+$ select table_name, privilege_type, string_agg(column_name, ', ' order by column_name) as columnas from information_schema.column_privileges where grantee='authenticated' and table_schema='public' and privilege_type in ('INSERT','UPDATE') group by 1,2 order by 1,2;
+   table_name    | privilege_type |                        columnas                         
+-----------------+----------------+---------------------------------------------------------
+ comments        | INSERT         | body, id, task_id
+ profiles        | UPDATE         | display_name
+ project_members | INSERT         | project_id, role, user_id
+ projects        | INSERT         | description, name
+ projects        | UPDATE         | description, name
+ tasks           | INSERT         | assignee_id, description, id, project_id, status, title
+ tasks           | UPDATE         | assignee_id, description, status, title
+(7 rows)
+
+$ select table_name, string_agg(privilege_type, ', ' order by privilege_type) from information_schema.table_privileges where table_schema='public' and grantee in ('anon','authenticated') group by grantee, table_name order by 1;
+   table_name    |   string_agg   
+-----------------+----------------
+ comments        | DELETE, SELECT
+ profiles        | SELECT
+ project_members | DELETE, SELECT
+ projects        | DELETE, SELECT
+ tasks           | DELETE, SELECT
+(5 rows)
+
+$ select grantee, count(*) from information_schema.table_privileges where table_schema='public' and grantee='anon' group by grantee;
+ grantee | count 
+---------+-------
+(0 rows)
+
+$ select pubname, tablename from pg_publication_tables where pubname='supabase_realtime' order by 2;
+      pubname      |    tablename    
+-------------------+-----------------
+ supabase_realtime | comments
+ supabase_realtime | project_members
+ supabase_realtime | tasks
+(3 rows)
+
+$ select relname, case relreplident when 'f' then 'full' when 'd' then 'default' end as replica_identity from pg_class where relname in ('tasks','comments','project_members') order by 1;
+     relname     | replica_identity 
+-----------------+------------------
+ comments        | full
+ project_members | full
+ tasks           | full
+(3 rows)
+

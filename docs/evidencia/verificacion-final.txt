@@ -1,8 +1,8 @@
-Verificación final de src/ · 2026-11-10 14:26:39 -0500 · node v24.15.0 · pnpm 11.24.0 · commit 0842e7a
+Verificación final de src/ · 2026-11-10 14:46:51 -0500 · node v24.15.0 · pnpm 11.24.0 · commit 0372db0
 
 ### $ pnpm install --frozen-lockfile
 Already up to date
-Done in 2.3s using pnpm v11.24.0
+Done in 1.1s using pnpm v11.24.0
 (código de salida: 0)
 
 Nota: tsconfig.json tiene "files": [] y solo referencias; el chequeo real es tsc -b (script typecheck).
@@ -28,12 +28,12 @@ $ vitest run
 
 
  Test Files  8 passed (8)
-      Tests  37 passed (37)
-   Start at  14:27:07
-   Duration  20.32s (environment 65%, setup 24%, tests 4%, transform 4%, import 2%)
+      Tests  38 passed (38)
+   Start at  14:47:08
+   Duration  16.68s (environment 67%, setup 24%, tests 5%, transform 2%, import 1%, worker 1%)
 
-    Isolate  8 workers spawned · ~8.77s startup each (spawn + environment, per file)
-             at least ~1.25s faster with isolate: false — reuses workers across files instead of one per file
+    Isolate  8 workers spawned · ~7.67s startup each (spawn + environment, per file)
+             at least ~1.10s faster with isolate: false — reuses workers across files instead of one per file
 
 (código de salida: 0)
 
@@ -45,14 +45,14 @@ transforming...
 rendering chunks...
 computing gzip size...
 dist/index.html                           0.44 kB │ gzip:  0.30 kB
-dist/assets/index-DO80z5lZ.css           17.01 kB │ gzip:  4.32 kB
+dist/assets/index-DzAgAnoZ.css           17.04 kB │ gzip:  4.32 kB
 dist/assets/validation-VCUhiuNi.js        1.34 kB │ gzip:  0.71 kB
 dist/assets/supabase-rzVqX61B.js          4.91 kB │ gzip:  1.79 kB
-dist/assets/demo-COWQkXaA.js              7.25 kB │ gzip:  2.54 kB
+dist/assets/demo-BQ_eHkLX.js              7.34 kB │ gzip:  2.60 kB
 dist/assets/supabaseClient-RKgf0EGn.js  216.10 kB │ gzip: 55.72 kB
-dist/assets/index-Gaopg6oS.js           247.41 kB │ gzip: 76.42 kB
+dist/assets/index-CgiTqTXX.js           247.82 kB │ gzip: 76.49 kB
 
-✓ built in 1.42s
+✓ built in 829ms
 (código de salida: 0)
 
 ### Build con variables de prueba (valores falsos, no son credenciales): modo Supabase
@@ -63,14 +63,14 @@ transforming...
 rendering chunks...
 computing gzip size...
 dist/index.html                           0.44 kB │ gzip:  0.30 kB
-dist/assets/index-DO80z5lZ.css           17.01 kB │ gzip:  4.32 kB
+dist/assets/index-DzAgAnoZ.css           17.04 kB │ gzip:  4.32 kB
 dist/assets/validation-VCUhiuNi.js        1.34 kB │ gzip:  0.71 kB
 dist/assets/supabase-rzVqX61B.js          4.91 kB │ gzip:  1.79 kB
-dist/assets/demo-COWQkXaA.js              7.25 kB │ gzip:  2.54 kB
+dist/assets/demo-BQ_eHkLX.js              7.34 kB │ gzip:  2.60 kB
 dist/assets/supabaseClient-csSvMFvh.js  216.16 kB │ gzip: 55.75 kB
-dist/assets/index-DFDNp4T9.js           247.41 kB │ gzip: 76.42 kB
+dist/assets/index-DNv_nqdr.js           247.82 kB │ gzip: 76.49 kB
 
-✓ built in 1.15s
+✓ built in 869ms
 (código de salida: 0)
 
 ### RLS y Realtime contra el Supabase local (CLI 2.122.0, tres usuarios reales)
