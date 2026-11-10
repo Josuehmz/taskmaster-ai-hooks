@@ -38,12 +38,14 @@ describe('useTasks · carga', () => {
 
   it('expone el error de carga y se recupera con refetch', async () => {
     const a = makeTask()
-    const { hook, repository } = setup([a])
+    const { hook, repository } = setup([a], PROJECT_B)
+    await waitFor(() => expect(hook.result.current.loading).toBe(false))
+    // La próxima carga (la del proyecto A) falla; v2 la consumía con la carga de B.
     repository.list.mockRejectedValueOnce(new Error('sin red'))
-    hook.rerender({ id: PROJECT_B })
     hook.rerender({ id: PROJECT_A })
     await waitFor(() => expect(hook.result.current.error?.message).toBe('sin red'))
     expect(hook.result.current.loading).toBe(false)
+    expect(hook.result.current.tasks).toEqual([])
     await act(() => hook.result.current.refetch())
     expect(hook.result.current.error).toBeNull()
     expect(hook.result.current.tasks).toEqual([a])
@@ -52,6 +54,7 @@ describe('useTasks · carga', () => {
   it('sin proyecto (null) no carga ni abre canal', () => {
     const { hook, repository } = setup([], null)
     expect(hook.result.current.loading).toBe(false)
+    expect(hook.result.current.realtime).toBe('off')
     expect(repository.list).not.toHaveBeenCalled()
     expect(repository.subscribe).not.toHaveBeenCalled()
   })
@@ -134,6 +137,26 @@ describe('useTasks · mutaciones optimistas', () => {
     })
     expect(hook.result.current.tasks).toEqual([a, b, c])
   })
+
+  it('un cambio ajeno que llega durante una edición propia fallida no se pierde', async () => {
+    const a = makeTask({ title: 'original' })
+    const { hook, repository, emit } = setup([a])
+    await waitFor(() => expect(hook.result.current.tasks).toEqual([a]))
+    const reply = deferred<Task>()
+    repository.update.mockReturnValueOnce(reply.promise)
+    let pending: Promise<Task> = Promise.resolve(a)
+    act(() => {
+      pending = hook.result.current.updateTask(a.id, { status: 'done' })
+    })
+    const theirs = { ...a, title: 'renombrada por otro', updated_at: '2026-11-10T14:00:00.000Z' }
+    act(() => emit({ type: 'UPDATE', row: theirs })) // diferido: hay una mutación propia en vuelo
+    expect(hook.result.current.tasks[0]?.status).toBe('done')
+    await act(async () => {
+      reply.reject(new Error('timeout'))
+      await pending.catch(() => {})
+    })
+    expect(hook.result.current.tasks).toEqual([theirs]) // se revierte lo propio y gana lo ajeno
+  })
 })
 
 describe('useTasks · tiempo real', () => {
@@ -157,7 +180,7 @@ describe('useTasks · tiempo real', () => {
     expect(hook.result.current.lastRemoteChange).toMatchObject({ type: 'DELETE', row: { title: 'De otro usuario' } })
   })
 
-  it('ignora el INSERT de otro proyecto y el DELETE de una fila ajena', async () => {
+  it('ignora el DELETE de una fila ajena', async () => {
     const a = makeTask()
     const { hook, emit } = setup([a])
     await waitFor(() => expect(hook.result.current.loading).toBe(false))
@@ -189,6 +212,46 @@ describe('useTasks · tiempo real', () => {
     act(() => emit({ type: 'INSERT', row: saved })) // y otro eco tardío, por si acaso
     expect(hook.result.current.tasks).toEqual([saved])
     expect(hook.result.current.lastRemoteChange).toBeNull() // el eco propio no se anuncia
+  })
+
+  it('un CHANNEL_ERROR marca el canal como desconectado sin convertirlo en error de carga', async () => {
+    const a = makeTask()
+    const { hook, status } = setup([a])
+    await waitFor(() => expect(hook.result.current.loading).toBe(false))
+    expect(hook.result.current.realtime).toBe('connecting')
+    act(() => status('SUBSCRIBED'))
+    expect(hook.result.current.realtime).toBe('live')
+    act(() => status('CHANNEL_ERROR'))
+    expect(hook.result.current.realtime).toBe('offline')
+    expect(hook.result.current.error).toBeNull()
+    expect(hook.result.current.tasks).toEqual([a])
+  })
+
+  it('al reconectar (SUBSCRIBED de nuevo) recarga y recupera el cambio perdido', async () => {
+    const a = makeTask({ title: 'antes' })
+    const { hook, status, setServerRow, repository } = setup([a])
+    await waitFor(() => expect(hook.result.current.loading).toBe(false))
+    act(() => status('SUBSCRIBED'))
+    act(() => status('CHANNEL_ERROR'))
+    const lost = { ...a, title: 'cambiada mientras el canal estaba caído', updated_at: '2026-11-10T15:00:00.000Z' }
+    setServerRow(lost) // el evento de este cambio nunca llega
+    const calls = repository.list.mock.calls.length
+    act(() => status('SUBSCRIBED'))
+    await waitFor(() => expect(hook.result.current.tasks).toEqual([lost]))
+    expect(repository.list.mock.calls.length).toBe(calls + 1)
+    expect(hook.result.current.realtime).toBe('live')
+  })
+
+  it('al volver a la pestaña recarga (red de seguridad para eventos perdidos)', async () => {
+    const a = makeTask({ title: 'antes' })
+    const { hook, setServerRow } = setup([a])
+    await waitFor(() => expect(hook.result.current.loading).toBe(false))
+    const lost = { ...a, title: 'cambiada sin evento', updated_at: '2026-11-10T15:00:00.000Z' }
+    setServerRow(lost)
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await waitFor(() => expect(hook.result.current.tasks).toEqual([lost]))
   })
 })
 
@@ -252,7 +315,9 @@ describe('useTasks · ciclo de vida', () => {
     await act(async () => {
       pendingLists[0]?.reply.resolve([makeTask()])
       emit({ type: 'INSERT', row: makeTask() })
+      document.dispatchEvent(new Event('visibilitychange')) // el listener también se quitó
     })
     expect(errors).not.toHaveBeenCalled()
+    expect(pendingLists).toHaveLength(1)
   })
 })

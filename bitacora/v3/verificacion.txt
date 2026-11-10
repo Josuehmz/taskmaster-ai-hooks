@@ -1,0 +1,97 @@
+Verificación de v3 · 2026-11-10 14:12:10 -0500 · node v24.15.0 · pnpm 11.24.0
+
+### TypeScript
+$ pnpm exec tsc -b --noEmit
+(código de salida: 0)
+
+### Lint (oxlint)
+$ pnpm exec oxlint --deny-warnings
+(código de salida: 0)
+
+### Pruebas (Vitest)
+$ pnpm exec vitest run
+
+ RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
+
+ ❯ src/hooks/useTasks.test.tsx (17 tests | 1 failed) 2690ms
+   ❯ useTasks · tiempo real (6)
+     × al reconectar (SUBSCRIBED de nuevo) recarga y recupera el cambio perdido 1136ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/useTasks.test.tsx > useTasks · tiempo real > al reconectar (SUBSCRIBED de nuevo) recarga y recupera el cambio perdido
+AssertionError: expected [ { …(9) } ] to deeply equal [ { …(9) } ]
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div />
+  </body>
+</html>
+
+- Expected
++ Received
+
+@@ -5,9 +5,9 @@
+      "created_by": "20000000-0000-4000-8000-000000000001",
+      "description": null,
+      "id": "bedae07a-f907-4e84-9ca2-ab7796ca14df",
+      "project_id": "10000000-0000-4000-8000-00000000000a",
+      "status": "todo",
+-     "title": "cambiada mientras el canal estaba caído",
+-     "updated_at": "2026-11-10T15:00:00.000Z",
++     "title": "antes",
++     "updated_at": "2026-11-10T12:00:17.000Z",
+    },
+  ]
+
+ ❯ src/hooks/useTasks.test.tsx:240:59
+    238|     const calls = repository.list.mock.calls.length
+    239|     act(() => status('SUBSCRIBED'))
+    240|     await waitFor(() => expect(hook.result.current.tasks).toEqual([los…
+       |                                                           ^
+    241|     expect(repository.list.mock.calls.length).toBe(calls + 1)
+    242|     expect(hook.result.current.realtime).toBe('live')
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 6 passed (7)
+      Tests  1 failed | 34 passed (35)
+   Start at  14:12:26
+   Duration  18.67s (environment 62%, setup 20%, transform 8%, import 5%, tests 4%)
+
+(código de salida: 1)
+
+### Build sin variables de entorno
+$ pnpm exec vite build
+vite v8.3.7 building client environment for production...
+transforming...
+✓ 94 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.44 kB │ gzip:   0.30 kB
+dist/assets/index-C-bXQT6u.css   16.98 kB │ gzip:   4.30 kB
+dist/assets/index-DHw8Ybsn.js   474.87 kB │ gzip: 134.50 kB
+
+✓ built in 1.03s
+(código de salida: 0)
+
+### Build con variables de prueba (valores falsos)
+$ pnpm exec vite build
+vite v8.3.7 building client environment for production...
+transforming...
+✓ 94 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.44 kB │ gzip:   0.30 kB
+dist/assets/index-C-bXQT6u.css   16.98 kB │ gzip:   4.30 kB
+dist/assets/index-Bl6BWDgy.js   474.75 kB │ gzip: 134.37 kB
+
+✓ built in 1.07s
+(código de salida: 0)
+

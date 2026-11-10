@@ -1,28 +1,31 @@
-// Núcleo reutilizable: estado { data, loading, error } + suscripción Realtime + reconciliación +
-// mutaciones optimistas con reversión.
+// Núcleo reutilizable: estado { data, loading, error } + canal Realtime + reconciliación +
+// mutaciones optimistas con reversión. useTasks, useComments, useProjectMembers, useProjects y
+// useProfiles lo componen; ninguno repite esta lógica.
 //
-// useTasks, useComments, useProjectMembers, useProjects y useProfiles lo componen; ninguno repite
-// la lógica de carga, suscripción, limpieza, optimismo ni descarte de respuestas tardías.
+// QUÉ GARANTIZA
+//   - Aislamiento por scope (projectId, taskId…): el estado recuerda a qué scope pertenece y el
+//     render nunca muestra filas de otro scope. Al cambiar de scope o desmontar se cierra el canal
+//     (el repositorio llama a client.removeChannel), se aborta la carga en vuelo y scopeRef pasa a
+//     null: ninguna respuesta tardía, de carga o de mutación, vuelve a tocar el estado.
+//   - Sin huecos entre carga y canal: el canal se abre ANTES de la carga y los eventos que llegan
+//     con la carga en vuelo se reaplican sobre la respuesta (upsert idempotente por clave).
+//   - Recuperación tras una desconexión: cada SUBSCRIBED posterior a la carga (reconexión del
+//     canal) y cada vez que la pestaña vuelve a estar visible o el navegador vuelve a estar en
+//     línea, se recarga la lista desde el servidor.
+//   - Mutaciones propias: se pintan al instante; si el servidor falla se restaura la fila previa
+//     exacta (o se quita la nueva), el error queda en `mutationError` y la promesa se rechaza.
+//   - Ecos: mientras una clave tiene una mutación propia en vuelo sus eventos se difieren; al
+//     terminar se aplica el último con control de versión. El eco es igual a la respuesta y no
+//     cambia nada (ni se anuncia); un cambio ajeno más nuevo gana.
 //
-// Ciclo de vida por scope (projectId, taskId...):
-//   1. El estado guarda a qué scope pertenece. Si el scope pedido no coincide, el render muestra
-//      un estado vacío "cargando" calculado en el render (no hay setState síncrono en el efecto).
-//   2. Se abre la suscripción ANTES de la carga inicial; los eventos que llegan con la carga en
-//      vuelo se guardan en un búfer y se reaplican sobre la respuesta (upsert idempotente).
-//   3. Cada SUBSCRIBED posterior a la carga (reconexión) dispara un refetch: durante la
-//      desconexión se pudieron perder eventos.
-//   4. Limpieza (cambio de scope o desmontaje): `active = false` descarta eventos tardíos,
-//      scopeRef pasa a null (ninguna mutación tardía vuelve a tocar el estado), se aborta la
-//      carga en vuelo y se cierra el canal (el repositorio llama a client.removeChannel).
-//
-// Mutaciones (mutateUpsert / mutateRemove):
-//   - Pintan el cambio al instante y guardan la fila previa DENTRO del mismo updater.
-//   - Mientras la clave tiene una mutación propia en vuelo, los eventos Realtime de esa clave se
-//     difieren (no se aplican): el eco no pisa el valor optimista. Al terminar se aplica el último
-//     evento diferido con control de versión: si era el eco, no cambia nada; si era un cambio de
-//     otro usuario más nuevo, gana.
-//   - Si el servidor falla: se restaura la fila previa exacta (o se quita la fila nueva), se
-//     guarda el error en `mutationError` y la promesa se rechaza.
+// QUÉ NO GARANTIZA
+//   - Orden total entre usuarios: si dos personas editan la misma tarea a la vez, gana la última
+//     escritura que acepta la base (last-writer-wins por updated_at). No hay fusión de campos.
+//   - Que lleguen todos los eventos: Realtime no reenvía lo que se perdió (medido en Supabase local
+//     tras reiniciar la base: el primer INSERT no llegó). Por eso las recargas de arriba; mientras
+//     tanto la lista puede estar desactualizada, nunca mezclada con otro scope.
+//   - Los DELETE no traen más que la clave primaria y le llegan también a quien no es miembro
+//     (medido): solo sirven para quitar una fila que ya está en la lista.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, ScopedCollectionSource } from '../services/types'
 import {
@@ -43,14 +46,21 @@ export type RemoteChange<T> = {
   readonly at: number
 }
 
+/**
+ * Estado del canal, separado del error de carga:
+ * 'off' = la fuente no tiene tiempo real · 'connecting' · 'live' · 'offline' (supabase-js reintenta).
+ */
+export type RealtimeStatus = 'off' | 'connecting' | 'live' | 'offline'
+
 export type CollectionState<T> = {
   readonly data: readonly T[]
   readonly loading: boolean
-  /** Error de carga o del canal de tiempo real. */
+  /** Error de la carga (consulta). Un problema del canal NO va aquí: va en `realtime`. */
   readonly error: Error | null
   /** Error de la última mutación que falló (el cambio optimista ya se revirtió). */
   readonly mutationError: Error | null
   readonly lastRemoteChange: RemoteChange<T> | null
+  readonly realtime: RealtimeStatus
 }
 
 type InternalState<T> = CollectionState<T> & { readonly scope: string | null }
@@ -87,7 +97,7 @@ type PendingEntry<T> = { count: number; deferred: ChangeEvent<T> | null }
 
 const NO_ROWS: readonly never[] = []
 
-function emptyState<T>(scope: string | null): InternalState<T> {
+function emptyState<T>(scope: string | null, hasRealtime: boolean): InternalState<T> {
   return {
     scope,
     data: NO_ROWS,
@@ -95,6 +105,7 @@ function emptyState<T>(scope: string | null): InternalState<T> {
     error: null,
     mutationError: null,
     lastRemoteChange: null,
+    realtime: scope !== null && hasRealtime ? 'connecting' : 'off',
   }
 }
 
@@ -106,10 +117,11 @@ export function useRealtimeCollection<T extends object>(
   options: UseRealtimeCollectionOptions<T>,
 ): UseRealtimeCollectionResult<T> {
   const { scopeId, source, keyOf, compare, versionOf } = options
+  const hasRealtime = source.subscribe !== undefined
 
-  const [state, setState] = useState<InternalState<T>>(() => emptyState(scopeId))
+  const [state, setState] = useState<InternalState<T>>(() => emptyState(scopeId, hasRealtime))
   // Derivado en el render: al cambiar de scope no se ve ni un frame de datos del scope anterior.
-  const view: InternalState<T> = state.scope === scopeId ? state : emptyState(scopeId)
+  const view: InternalState<T> = state.scope === scopeId ? state : emptyState(scopeId, hasRealtime)
 
   /** Scope montado. null tras la limpieza: las respuestas tardías ya no tocan el estado. */
   const scopeRef = useRef<string | null>(null)
@@ -123,7 +135,16 @@ export function useRealtimeCollection<T extends object>(
     [keyOf],
   )
 
-  /** Aplica un evento remoto sobre el estado del scope `scope` (si sigue siendo el montado). */
+  /** Cambia el estado del scope `scope`; si el estado aún es de otro scope, parte de uno vacío. */
+  const patchScope = useCallback(
+    (scope: string, change: (base: InternalState<T>) => InternalState<T>) => {
+      if (scopeRef.current !== scope) return
+      setState((prev) => change(prev.scope === scope ? prev : emptyState<T>(scope, hasRealtime)))
+    },
+    [hasRealtime],
+  )
+
+  /** Aplica un evento remoto (si cambia algo, queda como último cambio remoto). */
   const applyRemote = useCallback(
     (scope: string, event: ChangeEvent<T>) => {
       setState((prev) => {
@@ -134,18 +155,6 @@ export function useRealtimeCollection<T extends object>(
       })
     },
     [keyOf, compare, versionOf],
-  )
-
-  /** Cambia los datos del scope `scope`; si el estado aún es de otro scope, parte de uno vacío. */
-  const updateScope = useCallback(
-    (scope: string, change: (rows: readonly T[]) => readonly T[], patch?: Partial<CollectionState<T>>) => {
-      if (scopeRef.current !== scope) return
-      setState((prev) => {
-        const base = prev.scope === scope ? prev : emptyState<T>(scope)
-        return { ...base, ...patch, data: change(base.data) }
-      })
-    },
-    [],
   )
 
   const load = useCallback(
@@ -162,34 +171,29 @@ export function useRealtimeCollection<T extends object>(
         const buffered = bufferRef.current ?? []
         bufferRef.current = null
         const pendingKeys = [...pendingRef.current.keys()]
-        setState((prev) => {
+        patchScope(scope, (base) => {
           let data = buffered.reduce<readonly T[]>(
             (acc, event) => applyChange(acc, event, keyOf, compare, versionOf).data,
             rows.toSorted(compare),
           )
           // Las claves con una mutación propia en vuelo conservan su versión local (optimista):
-          // un refetch no debe borrar ni deshacer lo que el usuario acaba de hacer.
-          const local = prev.scope === scope ? prev.data : NO_ROWS
+          // una recarga no debe borrar ni deshacer lo que el usuario acaba de hacer.
           for (const key of pendingKeys) {
-            const mine = local.find((row) => keyOf(row) === key)
+            const mine = base.data.find((row) => keyOf(row) === key)
             data = removeRow(data, key, keyOf)
             if (mine !== undefined) data = upsertRow(data, mine, keyOf, compare)
           }
-          const base = prev.scope === scope ? prev : emptyState<T>(scope)
           return { ...base, data, loading: false, error: null }
         })
       } catch (error) {
         if (isStale()) return
         bufferRef.current = null
-        setState((prev) => {
-          const base = prev.scope === scope ? prev : emptyState<T>(scope)
-          return { ...base, loading: false, error: toError(error) }
-        })
+        patchScope(scope, (base) => ({ ...base, loading: false, error: toError(error) }))
       } finally {
         if (loadControllerRef.current === controller) loadControllerRef.current = null
       }
     },
-    [source, keyOf, compare, versionOf],
+    [source, keyOf, compare, versionOf, patchScope],
   )
 
   useEffect(() => {
@@ -198,6 +202,7 @@ export function useRealtimeCollection<T extends object>(
     pendingRef.current = new Map()
     bufferRef.current = null
     let active = true
+    let loadedOnce = false
 
     const unsubscribe = source.subscribe?.(
       scopeId,
@@ -216,40 +221,48 @@ export function useRealtimeCollection<T extends object>(
         }
         applyRemote(scopeId, event)
       },
-      (status, error) => {
+      (status) => {
         if (!active) return
         if (status === 'SUBSCRIBED') {
-          // Si la carga sigue en vuelo, el búfer cubre el hueco; si ya terminó, se recarga.
-          if (bufferRef.current === null) void load(scopeId)
+          patchScope(scopeId, (base) => ({ ...base, realtime: 'live' }))
+          // Reconexión: durante la caída se pudieron perder eventos. Si la carga sigue en vuelo,
+          // el búfer cubre el hueco; si ya terminó, se recarga.
+          if (loadedOnce && bufferRef.current === null) void load(scopeId)
           return
         }
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          setState((prev) =>
-            prev.scope === scopeId
-              ? { ...prev, error: error ?? new Error(`Tiempo real no disponible (${status})`) }
-              : prev,
-          )
-        }
+        // CHANNEL_ERROR, TIMED_OUT o CLOSED: los datos siguen siendo válidos; solo se marca el canal.
+        patchScope(scopeId, (base) => ({ ...base, realtime: 'offline' }))
       },
     )
 
-    void load(scopeId)
+    void load(scopeId).then(() => {
+      loadedOnce = true
+    })
+
+    // Red de seguridad para eventos perdidos: recargar al volver a la pestaña o a la red.
+    const reloadIfVisible = () => {
+      if (active && loadedOnce && document.visibilityState === 'visible') void load(scopeId)
+    }
+    document.addEventListener('visibilitychange', reloadIfVisible)
+    window.addEventListener('online', reloadIfVisible)
 
     return () => {
       active = false
       scopeRef.current = null
       bufferRef.current = null
       loadControllerRef.current?.abort()
+      document.removeEventListener('visibilitychange', reloadIfVisible)
+      window.removeEventListener('online', reloadIfVisible)
       unsubscribe?.()
     }
-  }, [scopeId, source, load, keyOfEvent, applyRemote])
+  }, [scopeId, source, load, keyOfEvent, applyRemote, patchScope])
 
   const refetch = useCallback(async () => {
     const scope = scopeRef.current
     if (scope === null) return
-    setState((prev) => (prev.scope === scope ? { ...prev, loading: true, error: null } : prev))
+    patchScope(scope, (base) => ({ ...base, loading: true, error: null }))
     await load(scope)
-  }, [load])
+  }, [load, patchScope])
 
   const beginPending = useCallback((key: string) => {
     const pending = pendingRef.current
@@ -276,6 +289,12 @@ export function useRealtimeCollection<T extends object>(
       if (scope === null) throw new Error('No hay nada seleccionado')
       return scope
     }
+    const setData = (scope: string, change: (rows: readonly T[]) => readonly T[], mutationError?: Error | null) =>
+      patchScope(scope, (base) => ({
+        ...base,
+        data: change(base.data),
+        ...(mutationError === undefined ? {} : { mutationError }),
+      }))
 
     return {
       async mutateUpsert(row, request) {
@@ -284,24 +303,24 @@ export function useRealtimeCollection<T extends object>(
         if (key === null) throw new Error('La fila no tiene clave')
         const entry = beginPending(key)
         let previous: T | undefined
-        updateScope(
+        setData(
           scope,
           (rows) => {
             previous = rows.find((current) => keyOf(current) === key)
             return upsertRow(rows, row, keyOf, compare)
           },
-          { mutationError: null },
+          null,
         )
         try {
           const saved = await request()
-          updateScope(scope, (rows) => upsertRow(rows, saved, keyOf, compare))
+          setData(scope, (rows) => upsertRow(rows, saved, keyOf, compare))
           return saved
         } catch (error) {
-          updateScope(
+          setData(
             scope,
             (rows) =>
               previous === undefined ? removeRow(rows, key, keyOf) : upsertRow(rows, previous, keyOf, compare),
-            { mutationError: toError(error) },
+            toError(error),
           )
           throw error
         } finally {
@@ -313,22 +332,18 @@ export function useRealtimeCollection<T extends object>(
         const scope = requireScope()
         const entry = beginPending(key)
         let previous: T | undefined
-        updateScope(
+        setData(
           scope,
           (rows) => {
             previous = rows.find((current) => keyOf(current) === key)
             return removeRow(rows, key, keyOf)
           },
-          { mutationError: null },
+          null,
         )
         try {
           await request()
         } catch (error) {
-          updateScope(
-            scope,
-            (rows) => (previous === undefined ? rows : upsertRow(rows, previous, keyOf, compare)),
-            { mutationError: toError(error) },
-          )
+          setData(scope, (rows) => (previous === undefined ? rows : upsertRow(rows, previous, keyOf, compare)), toError(error))
           throw error
         } finally {
           endPending(scope, key, entry)
@@ -337,15 +352,15 @@ export function useRealtimeCollection<T extends object>(
 
       upsertConfirmed(row) {
         const scope = scopeRef.current
-        if (scope !== null) updateScope(scope, (rows) => upsertRow(rows, row, keyOf, compare))
+        if (scope !== null) setData(scope, (rows) => upsertRow(rows, row, keyOf, compare))
       },
 
       clearMutationError() {
         setState((prev) => (prev.mutationError === null ? prev : { ...prev, mutationError: null }))
       },
     }
-  }, [keyOf, compare, beginPending, endPending, updateScope])
+  }, [keyOf, compare, beginPending, endPending, patchScope])
 
-  const { data, loading, error, mutationError, lastRemoteChange } = view
-  return { data, loading, error, mutationError, lastRemoteChange, refetch, controls }
+  const { data, loading, error, mutationError, lastRemoteChange, realtime } = view
+  return { data, loading, error, mutationError, lastRemoteChange, realtime, refetch, controls }
 }

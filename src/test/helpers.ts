@@ -1,7 +1,13 @@
 // Utilidades de prueba: promesas controlables, filas de ejemplo y un TaskRepository falso
-// cuyo canal "Realtime" se dispara a mano desde la prueba.
+// cuyo canal "Realtime" (eventos y estado del canal) se dispara a mano desde la prueba.
 import { vi } from 'vitest'
-import type { ChangeEvent, ChangeListener, TaskRepository } from '../services/types'
+import type {
+  ChangeEvent,
+  ChangeListener,
+  StatusListener,
+  SubscriptionStatus,
+  TaskRepository,
+} from '../services/types'
 import type { Task } from '../types'
 
 export type Deferred<T> = {
@@ -41,7 +47,11 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
   }
 }
 
-type Subscriber = { readonly scope: string; readonly onChange: ChangeListener<Task> }
+type Subscriber = {
+  readonly scope: string
+  readonly onChange: ChangeListener<Task>
+  readonly onStatus: StatusListener | undefined
+}
 
 /**
  * Repositorio falso. Por defecto list() responde con las filas del proyecto; con
@@ -65,8 +75,8 @@ export function createFakeTaskRepository(initial: readonly Task[] = []) {
     create: vi.fn<TaskRepository['create']>(),
     update: vi.fn<TaskRepository['update']>(),
     remove: vi.fn<TaskRepository['remove']>(),
-    subscribe: vi.fn((scope: string, onChange: ChangeListener<Task>) => {
-      const subscriber = { scope, onChange }
+    subscribe: vi.fn((scope: string, onChange: ChangeListener<Task>, onStatus?: StatusListener) => {
+      const subscriber = { scope, onChange, onStatus }
       subscribers.add(subscriber)
       return () => {
         if (subscribers.delete(subscriber)) control.unsubscribed += 1
@@ -82,5 +92,15 @@ export function createFakeTaskRepository(initial: readonly Task[] = []) {
     }
   }
 
-  return { repository, emit, pendingLists, control, subscriberCount: () => subscribers.size }
+  /** Cambia el estado del canal (SUBSCRIBED, CHANNEL_ERROR…) en todos los suscriptores. */
+  function status(value: SubscriptionStatus): void {
+    for (const subscriber of [...subscribers]) subscriber.onStatus?.(value)
+  }
+
+  /** Cambia una fila "en el servidor" sin emitir evento (simula un evento perdido). */
+  function setServerRow(task: Task): void {
+    rows.set(task.id, task)
+  }
+
+  return { repository, emit, status, setServerRow, pendingLists, control, subscriberCount: () => subscribers.size }
 }

@@ -1,18 +1,11 @@
 // Prueba del ejemplo de componente: TaskBoard sobre el modo demo (latencia 0).
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { RepositoriesProvider } from '../hooks/RepositoriesContext'
-import { createDemoRepositories, DEMO_USER_ID } from '../services'
+import { DEMO_PROJECT_ID, DEMO_USER_ID, renderWithDemo } from '../test/renderWithDemo'
 import { TaskBoard } from './TaskBoard'
 
-const DEMO_PROJECT = '00000000-0000-4000-8000-000000000101'
-
 function renderBoard() {
-  return render(
-    <RepositoriesProvider value={createDemoRepositories({ latencyMs: 0 })}>
-      <TaskBoard projectId={DEMO_PROJECT} currentUserId={DEMO_USER_ID} />
-    </RepositoriesProvider>,
-  )
+  return renderWithDemo(<TaskBoard projectId={DEMO_PROJECT_ID} currentUserId={DEMO_USER_ID} />)
 }
 
 describe('TaskBoard (ejemplo de implementación)', () => {
@@ -20,6 +13,7 @@ describe('TaskBoard (ejemplo de implementación)', () => {
     renderBoard()
     expect(screen.getByText('Cargando tareas…')).toBeTruthy()
     expect(await screen.findByText('Encapsular Supabase en hooks')).toBeTruthy()
+    expect(await screen.findByText('● En vivo')).toBeTruthy()
   })
 
   it('valida el título vacío y crea una tarea', async () => {

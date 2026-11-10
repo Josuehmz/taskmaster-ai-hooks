@@ -1,9 +1,10 @@
 // TaskBoard: EJEMPLO DE IMPLEMENTACIÓN del hook useTasks en un componente.
 //
-// El componente no sabe nada de Supabase: pide { tasks, loading, error, mutationError,
+// El componente no sabe nada de Supabase: pide { tasks, loading, error, realtime, mutationError,
 // lastRemoteChange } y llama a createTask/updateTask/deleteTask. La carga, el canal Realtime, el
 // optimismo, la reversión y la limpieza viven en el hook.
 import { useState } from 'react'
+import type { RealtimeStatus } from '../hooks/useRealtimeCollection'
 import { useProfiles } from '../hooks/useProfiles'
 import { useProjectMembers } from '../hooks/useProjectMembers'
 import { useTasks } from '../hooks/useTasks'
@@ -26,11 +27,22 @@ function describeRemote(change: { type: keyof typeof REMOTE_VERB; row: Task }): 
   return `Otro usuario ${REMOTE_VERB[change.type]} «${change.row.title}»${status}`
 }
 
+const REALTIME_BADGE: Record<RealtimeStatus, { text: string; className: string }> = {
+  off: { text: 'Sin tiempo real', className: 'bg-slate-100 text-slate-600' },
+  connecting: { text: 'Conectando tiempo real…', className: 'bg-slate-100 text-slate-700' },
+  live: { text: '● En vivo', className: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200' },
+  offline: {
+    text: 'Tiempo real desconectado: reintentando (la lista se recarga al volver)',
+    className: 'bg-amber-50 text-amber-900 ring-1 ring-amber-300',
+  },
+}
+
 export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
   const {
     tasks,
     loading,
     error,
+    realtime,
     mutationError,
     lastRemoteChange,
     createTask,
@@ -46,6 +58,7 @@ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
   const nameOf = (userId: string | null) =>
     userId === null ? null : (profilesById.get(userId)?.display_name ?? 'Usuario')
+  const badge = REALTIME_BADGE[realtime]
 
   // Las mutaciones ya revierten y guardan el error en mutationError; aquí solo se evita el
   // "unhandled rejection" de la promesa.
@@ -54,9 +67,12 @@ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
       <section aria-labelledby="tareas-titulo" className="flex flex-col gap-4">
-        <h2 id="tareas-titulo" className="text-lg font-semibold text-slate-900">
-          Tareas
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="tareas-titulo" className="text-lg font-semibold text-slate-900">
+            Tareas
+          </h2>
+          <output className={`rounded-full px-3 py-1 text-xs font-medium ${badge.className}`}>{badge.text}</output>
+        </div>
 
         <TaskForm onCreate={createTask} />
 
@@ -83,10 +99,10 @@ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
         )}
 
         {loading && (
-          <p role="status" className="flex items-center gap-2 text-sm text-slate-600">
+          <output className="flex items-center gap-2 text-sm text-slate-600">
             <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600 motion-reduce:animate-none" />
             Cargando tareas…
-          </p>
+          </output>
         )}
 
         {!loading && error !== null && (

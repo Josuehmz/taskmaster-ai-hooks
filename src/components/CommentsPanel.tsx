@@ -29,7 +29,7 @@ export function CommentsPanel({ task, currentUserId }: CommentsPanelProps) {
       <h2 id={`${inputId}-titulo`} className="text-sm font-semibold text-slate-900">
         Comentarios de «{task.title}»
       </h2>
-      {loading && <p role="status" className="text-sm text-slate-500">Cargando comentarios…</p>}
+      {loading && <output className="block text-sm text-slate-500">Cargando comentarios…</output>}
       {error !== null && <p role="alert" className="text-sm text-red-700">{error.message}</p>}
       {mutationError !== null && (
         <p role="alert" className="text-sm text-red-700">

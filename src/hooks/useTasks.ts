@@ -22,6 +22,11 @@
 // ─── Limpieza y respuestas tardías ─────────────────────────────────────────────────────────
 //   Al cambiar de projectId o desmontar: removeChannel del canal del proyecto anterior, abort de
 //   la carga en vuelo, y ninguna respuesta (de carga o de mutación) toca el estado después.
+//
+// ─── Seguridad ─────────────────────────────────────────────────────────────────────────────
+//   El hook no filtra por usuario: lo hace la RLS en la base. La consulta y el canal llevan el JWT
+//   de la sesión, así que un usuario fuera del proyecto recibe una lista vacía y ningún
+//   INSERT/UPDATE (medido con tres usuarios en Supabase local).
 import { useCallback } from 'react'
 import type { NewTaskFields, Task, UpdateTaskInput } from '../types'
 import { useRepositories } from './RepositoriesContext'
@@ -29,6 +34,7 @@ import {
   useRealtimeCollection,
   type Compare,
   type KeyOf,
+  type RealtimeStatus,
   type RemoteChange,
   type VersionOf,
 } from './useRealtimeCollection'
@@ -36,8 +42,10 @@ import {
 export type UseTasksResult = {
   readonly tasks: readonly Task[]
   readonly loading: boolean
-  /** Error de carga o de tiempo real. */
+  /** Error de la carga. Un problema del canal no va aquí: va en `realtime`. */
   readonly error: Error | null
+  /** Estado del canal Realtime: 'connecting' | 'live' | 'offline' ('off' sin proyecto). */
+  readonly realtime: RealtimeStatus
   /** Error de la última mutación (el cambio optimista ya se revirtió). */
   readonly mutationError: Error | null
   /** Último cambio de OTRO usuario que llegó por tiempo real (los ecos propios no cuentan). */
@@ -59,7 +67,7 @@ const taskVersion: VersionOf<Task> = (row) => Date.parse(row.updated_at)
 /** @param projectId proyecto seleccionado; null = sin proyecto (lista vacía, sin canal). */
 export function useTasks(projectId: string | null): UseTasksResult {
   const { tasks: repository } = useRepositories()
-  const { data, loading, error, mutationError, lastRemoteChange, refetch, controls } =
+  const { data, loading, error, realtime, mutationError, lastRemoteChange, refetch, controls } =
     useRealtimeCollection({
       scopeId: projectId,
       source: repository,
@@ -116,6 +124,7 @@ export function useTasks(projectId: string | null): UseTasksResult {
     tasks: data,
     loading,
     error,
+    realtime,
     mutationError,
     lastRemoteChange,
     createTask,

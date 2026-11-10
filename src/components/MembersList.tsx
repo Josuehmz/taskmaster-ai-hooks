@@ -15,7 +15,7 @@ export function MembersList({ projectId }: MembersListProps) {
       <h2 id="miembros-titulo" className="mb-2 text-sm font-semibold text-slate-900">
         Miembros
       </h2>
-      {loading && <p role="status" className="text-sm text-slate-500">Cargando miembros…</p>}
+      {loading && <output className="block text-sm text-slate-500">Cargando miembros…</output>}
       {error !== null && <p role="alert" className="text-sm text-red-700">{error.message}</p>}
       <ul className="flex flex-col gap-1 text-sm">
         {members.map((member) => (

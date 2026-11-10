@@ -12,5 +12,7 @@ export default defineConfig({
     // fijos que Vitest espera a que arranque el worker, y la corrida fallaba sin ejecutar pruebas.
     pool: 'threads',
     include: ['src/**/*.test.{ts,tsx}'],
+    // Sin `globals`, Testing Library no registra su limpieza automática: la hace este archivo.
+    setupFiles: ['src/test/setup.ts'],
   },
 })

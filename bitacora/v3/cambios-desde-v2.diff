@@ -1,0 +1,932 @@
+diff --git a/bitacora/v2/src/components/CommentsPanel.tsx b/bitacora/v3/src/components/CommentsPanel.tsx
+index f9aaf6c..d879ef6 100644
+--- a/bitacora/v2/src/components/CommentsPanel.tsx
++++ b/bitacora/v3/src/components/CommentsPanel.tsx
+@@ -29,7 +29,7 @@ export function CommentsPanel({ task, currentUserId }: CommentsPanelProps) {
+       <h2 id={`${inputId}-titulo`} className="text-sm font-semibold text-slate-900">
+         Comentarios de «{task.title}»
+       </h2>
+-      {loading && <p role="status" className="text-sm text-slate-500">Cargando comentarios…</p>}
++      {loading && <output className="block text-sm text-slate-500">Cargando comentarios…</output>}
+       {error !== null && <p role="alert" className="text-sm text-red-700">{error.message}</p>}
+       {mutationError !== null && (
+         <p role="alert" className="text-sm text-red-700">
+diff --git a/bitacora/v2/src/components/MembersList.tsx b/bitacora/v3/src/components/MembersList.tsx
+index c0e50b6..fd11ccb 100644
+--- a/bitacora/v2/src/components/MembersList.tsx
++++ b/bitacora/v3/src/components/MembersList.tsx
+@@ -15,7 +15,7 @@ export function MembersList({ projectId }: MembersListProps) {
+       <h2 id="miembros-titulo" className="mb-2 text-sm font-semibold text-slate-900">
+         Miembros
+       </h2>
+-      {loading && <p role="status" className="text-sm text-slate-500">Cargando miembros…</p>}
++      {loading && <output className="block text-sm text-slate-500">Cargando miembros…</output>}
+       {error !== null && <p role="alert" className="text-sm text-red-700">{error.message}</p>}
+       <ul className="flex flex-col gap-1 text-sm">
+         {members.map((member) => (
+diff --git a/bitacora/v2/src/components/TaskBoard.test.tsx b/bitacora/v3/src/components/TaskBoard.test.tsx
+index 8ab6f31..b884568 100644
+--- a/bitacora/v2/src/components/TaskBoard.test.tsx
++++ b/bitacora/v3/src/components/TaskBoard.test.tsx
+@@ -1,18 +1,11 @@
+ // Prueba del ejemplo de componente: TaskBoard sobre el modo demo (latencia 0).
+-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
++import { fireEvent, screen, waitFor } from '@testing-library/react'
+ import { describe, expect, it } from 'vitest'
+-import { RepositoriesProvider } from '../hooks/RepositoriesContext'
+-import { createDemoRepositories, DEMO_USER_ID } from '../services'
++import { DEMO_PROJECT_ID, DEMO_USER_ID, renderWithDemo } from '../test/renderWithDemo'
+ import { TaskBoard } from './TaskBoard'
+ 
+-const DEMO_PROJECT = '00000000-0000-4000-8000-000000000101'
+-
+ function renderBoard() {
+-  return render(
+-    <RepositoriesProvider value={createDemoRepositories({ latencyMs: 0 })}>
+-      <TaskBoard projectId={DEMO_PROJECT} currentUserId={DEMO_USER_ID} />
+-    </RepositoriesProvider>,
+-  )
++  return renderWithDemo(<TaskBoard projectId={DEMO_PROJECT_ID} currentUserId={DEMO_USER_ID} />)
+ }
+ 
+ describe('TaskBoard (ejemplo de implementación)', () => {
+@@ -20,6 +13,7 @@ describe('TaskBoard (ejemplo de implementación)', () => {
+     renderBoard()
+     expect(screen.getByText('Cargando tareas…')).toBeTruthy()
+     expect(await screen.findByText('Encapsular Supabase en hooks')).toBeTruthy()
++    expect(await screen.findByText('● En vivo')).toBeTruthy()
+   })
+ 
+   it('valida el título vacío y crea una tarea', async () => {
+diff --git a/bitacora/v2/src/components/TaskBoard.tsx b/bitacora/v3/src/components/TaskBoard.tsx
+index 5870811..368eadf 100644
+--- a/bitacora/v2/src/components/TaskBoard.tsx
++++ b/bitacora/v3/src/components/TaskBoard.tsx
+@@ -1,9 +1,10 @@
+ // TaskBoard: EJEMPLO DE IMPLEMENTACIÓN del hook useTasks en un componente.
+ //
+-// El componente no sabe nada de Supabase: pide { tasks, loading, error, mutationError,
++// El componente no sabe nada de Supabase: pide { tasks, loading, error, realtime, mutationError,
+ // lastRemoteChange } y llama a createTask/updateTask/deleteTask. La carga, el canal Realtime, el
+ // optimismo, la reversión y la limpieza viven en el hook.
+ import { useState } from 'react'
++import type { RealtimeStatus } from '../hooks/useRealtimeCollection'
+ import { useProfiles } from '../hooks/useProfiles'
+ import { useProjectMembers } from '../hooks/useProjectMembers'
+ import { useTasks } from '../hooks/useTasks'
+@@ -26,11 +27,22 @@ function describeRemote(change: { type: keyof typeof REMOTE_VERB; row: Task }):
+   return `Otro usuario ${REMOTE_VERB[change.type]} «${change.row.title}»${status}`
+ }
+ 
++const REALTIME_BADGE: Record<RealtimeStatus, { text: string; className: string }> = {
++  off: { text: 'Sin tiempo real', className: 'bg-slate-100 text-slate-600' },
++  connecting: { text: 'Conectando tiempo real…', className: 'bg-slate-100 text-slate-700' },
++  live: { text: '● En vivo', className: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200' },
++  offline: {
++    text: 'Tiempo real desconectado: reintentando (la lista se recarga al volver)',
++    className: 'bg-amber-50 text-amber-900 ring-1 ring-amber-300',
++  },
++}
++
+ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
+   const {
+     tasks,
+     loading,
+     error,
++    realtime,
+     mutationError,
+     lastRemoteChange,
+     createTask,
+@@ -46,6 +58,7 @@ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
+   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
+   const nameOf = (userId: string | null) =>
+     userId === null ? null : (profilesById.get(userId)?.display_name ?? 'Usuario')
++  const badge = REALTIME_BADGE[realtime]
+ 
+   // Las mutaciones ya revierten y guardan el error en mutationError; aquí solo se evita el
+   // "unhandled rejection" de la promesa.
+@@ -54,9 +67,12 @@ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
+   return (
+     <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+       <section aria-labelledby="tareas-titulo" className="flex flex-col gap-4">
+-        <h2 id="tareas-titulo" className="text-lg font-semibold text-slate-900">
+-          Tareas
+-        </h2>
++        <div className="flex flex-wrap items-center justify-between gap-2">
++          <h2 id="tareas-titulo" className="text-lg font-semibold text-slate-900">
++            Tareas
++          </h2>
++          <output className={`rounded-full px-3 py-1 text-xs font-medium ${badge.className}`}>{badge.text}</output>
++        </div>
+ 
+         <TaskForm onCreate={createTask} />
+ 
+@@ -83,10 +99,10 @@ export function TaskBoard({ projectId, currentUserId }: TaskBoardProps) {
+         )}
+ 
+         {loading && (
+-          <p role="status" className="flex items-center gap-2 text-sm text-slate-600">
++          <output className="flex items-center gap-2 text-sm text-slate-600">
+             <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600 motion-reduce:animate-none" />
+             Cargando tareas…
+-          </p>
++          </output>
+         )}
+ 
+         {!loading && error !== null && (
+diff --git a/bitacora/v3/src/components/Workspace.test.tsx b/bitacora/v3/src/components/Workspace.test.tsx
+new file mode 100644
+index 0000000..205ac56
+--- /dev/null
++++ b/bitacora/v3/src/components/Workspace.test.tsx
+@@ -0,0 +1,46 @@
++// Flujo de inicio de sesión: nada que dependa del usuario se carga sin sesión, y todo se carga
++// al iniciarla (hallazgo de la revisión de v2).
++import { fireEvent, screen } from '@testing-library/react'
++import { describe, expect, it, vi } from 'vitest'
++import type { SessionUser } from '../types'
++import { DEMO_USER_ID, demoRepositories, renderWithDemo, type AuthRepository } from '../test/renderWithDemo'
++import { Workspace } from './Workspace'
++
++function signedOutAuth() {
++  const user: SessionUser = { id: DEMO_USER_ID, email: 'ana@taskmaster.test' }
++  const auth = {
++    getSession: vi.fn<AuthRepository['getSession']>(async () => null),
++    onAuthStateChange: vi.fn<AuthRepository['onAuthStateChange']>(() => () => {}),
++    signIn: vi.fn<AuthRepository['signIn']>(async () => user),
++    signOut: vi.fn<AuthRepository['signOut']>(async () => {}),
++  } satisfies AuthRepository
++  return auth
++}
++
++describe('Workspace · sesión', () => {
++  it('sin sesión muestra el login y no consulta proyectos; al entrar, los carga', async () => {
++    const auth = signedOutAuth()
++    const base = demoRepositories()
++    const list = vi.spyOn(base.projects, 'list')
++    renderWithDemo(<Workspace />, { ...base, auth })
++
++    expect(await screen.findByRole('button', { name: 'Entrar' })).toBeTruthy()
++    expect(list).not.toHaveBeenCalled()
++
++    fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'ana@taskmaster.test' } })
++    fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'x' } })
++    fireEvent.click(screen.getByRole('button', { name: 'Entrar' }))
++
++    expect(await screen.findByText('Encapsular Supabase en hooks')).toBeTruthy()
++    expect(list).toHaveBeenCalledTimes(1)
++    expect(auth.signIn).toHaveBeenCalledWith('ana@taskmaster.test', 'x')
++  })
++
++  it('al cerrar sesión vuelve al login', async () => {
++    const auth = signedOutAuth()
++    auth.getSession.mockResolvedValueOnce({ id: DEMO_USER_ID, email: 'ana@taskmaster.test' })
++    renderWithDemo(<Workspace />, { auth })
++    fireEvent.click(await screen.findByRole('button', { name: 'Salir' }))
++    expect(await screen.findByRole('button', { name: 'Entrar' })).toBeTruthy()
++  })
++})
+diff --git a/bitacora/v2/src/components/Workspace.tsx b/bitacora/v3/src/components/Workspace.tsx
+index 09f2857..a1f7a6a 100644
+--- a/bitacora/v2/src/components/Workspace.tsx
++++ b/bitacora/v3/src/components/Workspace.tsx
+@@ -1,7 +1,13 @@
+ // Espacio de trabajo: sesión, selector de proyecto y tablero del proyecto elegido.
++//
++// Todo lo que depende del usuario (useProjects y, debajo, useTasks, useComments…) vive en
++// <ProjectsArea>, que solo se monta con sesión y lleva key={user.id}: al iniciar sesión se carga
++// por primera vez, al cambiar de usuario se remonta (cierra canales y recarga con el JWT nuevo) y al
++// cerrar sesión se desmonta (removeChannel de todo). Sin sesión, RLS no deja leer nada.
+ import { useId, useState, type FormEvent } from 'react'
+ import { useProjects } from '../hooks/useProjects'
+ import { useSession } from '../hooks/useSession'
++import type { SessionUser } from '../types'
+ import { DemoModeBadge } from './DemoModeBadge'
+ import { LoginScreen } from './LoginScreen'
+ import { TaskBoard } from './TaskBoard'
+@@ -31,41 +37,15 @@ function NewProjectForm({ onCreate }: { readonly onCreate: (name: string) => Pro
+   )
+ }
+ 
+-export function Workspace() {
+-  const session = useSession()
++function ProjectsArea({ user }: { readonly user: SessionUser }) {
+   const { projects, loading, error, createProject } = useProjects()
+   const [chosenId, setChosenId] = useState<string | null>(null)
+   const selectId = useId()
+-
+-  if (session.status === 'loading') {
+-    return <p role="status" className="p-6 text-sm text-slate-600">Comprobando la sesión…</p>
+-  }
+-  if (session.status === 'signed-out' || session.user === null) {
+-    return <LoginScreen session={session} />
+-  }
+-
+   const project = projects.find((p) => p.id === chosenId) ?? projects[0]
+ 
+   return (
+-    <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4 text-slate-800 sm:p-6">
+-      <header className="flex flex-wrap items-center justify-between gap-3">
+-        <div className="flex flex-wrap items-center gap-3">
+-          <h1 className="text-xl font-bold text-slate-900">TaskMaster AI</h1>
+-          <DemoModeBadge />
+-        </div>
+-        <div className="flex items-center gap-2 text-sm text-slate-600">
+-          <span className="max-w-48 truncate">{session.user.email}</span>
+-          <button
+-            type="button"
+-            onClick={() => void session.signOut()}
+-            className="rounded px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-indigo-600"
+-          >
+-            Salir
+-          </button>
+-        </div>
+-      </header>
+-
+-      {loading && <p role="status" className="text-sm text-slate-600">Cargando proyectos…</p>}
++    <>
++      {loading && <output className="block text-sm text-slate-600">Cargando proyectos…</output>}
+       {error !== null && <p role="alert" className="text-sm text-red-700">No se pudieron cargar los proyectos: {error.message}</p>}
+       {!loading && error === null && projects.length === 0 && (
+         <div className="flex flex-col gap-2">
+@@ -73,7 +53,6 @@ export function Workspace() {
+           <NewProjectForm onCreate={(name) => createProject({ name })} />
+         </div>
+       )}
+-
+       {project !== undefined && (
+         <>
+           <div className="flex flex-wrap items-center gap-2">
+@@ -90,9 +69,42 @@ export function Workspace() {
+             </select>
+           </div>
+           {/* Cambiar de proyecto cambia el projectId: useTasks cierra el canal anterior y abre otro. */}
+-          <TaskBoard projectId={project.id} currentUserId={session.user.id} />
++          <TaskBoard projectId={project.id} currentUserId={user.id} />
+         </>
+       )}
++    </>
++  )
++}
++
++export function Workspace() {
++  const session = useSession()
++
++  if (session.status === 'loading') {
++    return <output className="block p-6 text-sm text-slate-600">Comprobando la sesión…</output>
++  }
++  if (session.status === 'signed-out' || session.user === null) {
++    return <LoginScreen session={session} />
++  }
++
++  return (
++    <main className="mx-auto flex max-w-6xl flex-col gap-4 p-4 text-slate-800 sm:p-6">
++      <header className="flex flex-wrap items-center justify-between gap-3">
++        <div className="flex flex-wrap items-center gap-3">
++          <h1 className="text-xl font-bold text-slate-900">TaskMaster AI</h1>
++          <DemoModeBadge />
++        </div>
++        <div className="flex items-center gap-2 text-sm text-slate-600">
++          <span className="max-w-48 truncate">{session.user.email}</span>
++          <button
++            type="button"
++            onClick={() => void session.signOut()}
++            className="rounded px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-indigo-600"
++          >
++            Salir
++          </button>
++        </div>
++      </header>
++      <ProjectsArea key={session.user.id} user={session.user} />
+     </main>
+   )
+ }
+diff --git a/bitacora/v2/src/hooks/useRealtimeCollection.ts b/bitacora/v3/src/hooks/useRealtimeCollection.ts
+index e8d9e35..7b70ff5 100644
+--- a/bitacora/v2/src/hooks/useRealtimeCollection.ts
++++ b/bitacora/v3/src/hooks/useRealtimeCollection.ts
+@@ -1,28 +1,31 @@
+-// Núcleo reutilizable: estado { data, loading, error } + suscripción Realtime + reconciliación +
+-// mutaciones optimistas con reversión.
++// Núcleo reutilizable: estado { data, loading, error } + canal Realtime + reconciliación +
++// mutaciones optimistas con reversión. useTasks, useComments, useProjectMembers, useProjects y
++// useProfiles lo componen; ninguno repite esta lógica.
+ //
+-// useTasks, useComments, useProjectMembers, useProjects y useProfiles lo componen; ninguno repite
+-// la lógica de carga, suscripción, limpieza, optimismo ni descarte de respuestas tardías.
++// QUÉ GARANTIZA
++//   - Aislamiento por scope (projectId, taskId…): el estado recuerda a qué scope pertenece y el
++//     render nunca muestra filas de otro scope. Al cambiar de scope o desmontar se cierra el canal
++//     (el repositorio llama a client.removeChannel), se aborta la carga en vuelo y scopeRef pasa a
++//     null: ninguna respuesta tardía, de carga o de mutación, vuelve a tocar el estado.
++//   - Sin huecos entre carga y canal: el canal se abre ANTES de la carga y los eventos que llegan
++//     con la carga en vuelo se reaplican sobre la respuesta (upsert idempotente por clave).
++//   - Recuperación tras una desconexión: cada SUBSCRIBED posterior a la carga (reconexión del
++//     canal) y cada vez que la pestaña vuelve a estar visible o el navegador vuelve a estar en
++//     línea, se recarga la lista desde el servidor.
++//   - Mutaciones propias: se pintan al instante; si el servidor falla se restaura la fila previa
++//     exacta (o se quita la nueva), el error queda en `mutationError` y la promesa se rechaza.
++//   - Ecos: mientras una clave tiene una mutación propia en vuelo sus eventos se difieren; al
++//     terminar se aplica el último con control de versión. El eco es igual a la respuesta y no
++//     cambia nada (ni se anuncia); un cambio ajeno más nuevo gana.
+ //
+-// Ciclo de vida por scope (projectId, taskId...):
+-//   1. El estado guarda a qué scope pertenece. Si el scope pedido no coincide, el render muestra
+-//      un estado vacío "cargando" calculado en el render (no hay setState síncrono en el efecto).
+-//   2. Se abre la suscripción ANTES de la carga inicial; los eventos que llegan con la carga en
+-//      vuelo se guardan en un búfer y se reaplican sobre la respuesta (upsert idempotente).
+-//   3. Cada SUBSCRIBED posterior a la carga (reconexión) dispara un refetch: durante la
+-//      desconexión se pudieron perder eventos.
+-//   4. Limpieza (cambio de scope o desmontaje): `active = false` descarta eventos tardíos,
+-//      scopeRef pasa a null (ninguna mutación tardía vuelve a tocar el estado), se aborta la
+-//      carga en vuelo y se cierra el canal (el repositorio llama a client.removeChannel).
+-//
+-// Mutaciones (mutateUpsert / mutateRemove):
+-//   - Pintan el cambio al instante y guardan la fila previa DENTRO del mismo updater.
+-//   - Mientras la clave tiene una mutación propia en vuelo, los eventos Realtime de esa clave se
+-//     difieren (no se aplican): el eco no pisa el valor optimista. Al terminar se aplica el último
+-//     evento diferido con control de versión: si era el eco, no cambia nada; si era un cambio de
+-//     otro usuario más nuevo, gana.
+-//   - Si el servidor falla: se restaura la fila previa exacta (o se quita la fila nueva), se
+-//     guarda el error en `mutationError` y la promesa se rechaza.
++// QUÉ NO GARANTIZA
++//   - Orden total entre usuarios: si dos personas editan la misma tarea a la vez, gana la última
++//     escritura que acepta la base (last-writer-wins por updated_at). No hay fusión de campos.
++//   - Que lleguen todos los eventos: Realtime no reenvía lo que se perdió (medido en Supabase local
++//     tras reiniciar la base: el primer INSERT no llegó). Por eso las recargas de arriba; mientras
++//     tanto la lista puede estar desactualizada, nunca mezclada con otro scope.
++//   - Los DELETE no traen más que la clave primaria y le llegan también a quien no es miembro
++//     (medido): solo sirven para quitar una fila que ya está en la lista.
+ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+ import type { ChangeEvent, ScopedCollectionSource } from '../services/types'
+ import {
+@@ -43,14 +46,21 @@ export type RemoteChange<T> = {
+   readonly at: number
+ }
+ 
++/**
++ * Estado del canal, separado del error de carga:
++ * 'off' = la fuente no tiene tiempo real · 'connecting' · 'live' · 'offline' (supabase-js reintenta).
++ */
++export type RealtimeStatus = 'off' | 'connecting' | 'live' | 'offline'
++
+ export type CollectionState<T> = {
+   readonly data: readonly T[]
+   readonly loading: boolean
+-  /** Error de carga o del canal de tiempo real. */
++  /** Error de la carga (consulta). Un problema del canal NO va aquí: va en `realtime`. */
+   readonly error: Error | null
+   /** Error de la última mutación que falló (el cambio optimista ya se revirtió). */
+   readonly mutationError: Error | null
+   readonly lastRemoteChange: RemoteChange<T> | null
++  readonly realtime: RealtimeStatus
+ }
+ 
+ type InternalState<T> = CollectionState<T> & { readonly scope: string | null }
+@@ -87,7 +97,7 @@ type PendingEntry<T> = { count: number; deferred: ChangeEvent<T> | null }
+ 
+ const NO_ROWS: readonly never[] = []
+ 
+-function emptyState<T>(scope: string | null): InternalState<T> {
++function emptyState<T>(scope: string | null, hasRealtime: boolean): InternalState<T> {
+   return {
+     scope,
+     data: NO_ROWS,
+@@ -95,6 +105,7 @@ function emptyState<T>(scope: string | null): InternalState<T> {
+     error: null,
+     mutationError: null,
+     lastRemoteChange: null,
++    realtime: scope !== null && hasRealtime ? 'connecting' : 'off',
+   }
+ }
+ 
+@@ -106,10 +117,11 @@ export function useRealtimeCollection<T extends object>(
+   options: UseRealtimeCollectionOptions<T>,
+ ): UseRealtimeCollectionResult<T> {
+   const { scopeId, source, keyOf, compare, versionOf } = options
++  const hasRealtime = source.subscribe !== undefined
+ 
+-  const [state, setState] = useState<InternalState<T>>(() => emptyState(scopeId))
++  const [state, setState] = useState<InternalState<T>>(() => emptyState(scopeId, hasRealtime))
+   // Derivado en el render: al cambiar de scope no se ve ni un frame de datos del scope anterior.
+-  const view: InternalState<T> = state.scope === scopeId ? state : emptyState(scopeId)
++  const view: InternalState<T> = state.scope === scopeId ? state : emptyState(scopeId, hasRealtime)
+ 
+   /** Scope montado. null tras la limpieza: las respuestas tardías ya no tocan el estado. */
+   const scopeRef = useRef<string | null>(null)
+@@ -123,7 +135,16 @@ export function useRealtimeCollection<T extends object>(
+     [keyOf],
+   )
+ 
+-  /** Aplica un evento remoto sobre el estado del scope `scope` (si sigue siendo el montado). */
++  /** Cambia el estado del scope `scope`; si el estado aún es de otro scope, parte de uno vacío. */
++  const patchScope = useCallback(
++    (scope: string, change: (base: InternalState<T>) => InternalState<T>) => {
++      if (scopeRef.current !== scope) return
++      setState((prev) => change(prev.scope === scope ? prev : emptyState<T>(scope, hasRealtime)))
++    },
++    [hasRealtime],
++  )
++
++  /** Aplica un evento remoto (si cambia algo, queda como último cambio remoto). */
+   const applyRemote = useCallback(
+     (scope: string, event: ChangeEvent<T>) => {
+       setState((prev) => {
+@@ -136,18 +157,6 @@ export function useRealtimeCollection<T extends object>(
+     [keyOf, compare, versionOf],
+   )
+ 
+-  /** Cambia los datos del scope `scope`; si el estado aún es de otro scope, parte de uno vacío. */
+-  const updateScope = useCallback(
+-    (scope: string, change: (rows: readonly T[]) => readonly T[], patch?: Partial<CollectionState<T>>) => {
+-      if (scopeRef.current !== scope) return
+-      setState((prev) => {
+-        const base = prev.scope === scope ? prev : emptyState<T>(scope)
+-        return { ...base, ...patch, data: change(base.data) }
+-      })
+-    },
+-    [],
+-  )
+-
+   const load = useCallback(
+     async (scope: string): Promise<void> => {
+       loadControllerRef.current?.abort()
+@@ -162,34 +171,29 @@ export function useRealtimeCollection<T extends object>(
+         const buffered = bufferRef.current ?? []
+         bufferRef.current = null
+         const pendingKeys = [...pendingRef.current.keys()]
+-        setState((prev) => {
++        patchScope(scope, (base) => {
+           let data = buffered.reduce<readonly T[]>(
+             (acc, event) => applyChange(acc, event, keyOf, compare, versionOf).data,
+             rows.toSorted(compare),
+           )
+           // Las claves con una mutación propia en vuelo conservan su versión local (optimista):
+-          // un refetch no debe borrar ni deshacer lo que el usuario acaba de hacer.
+-          const local = prev.scope === scope ? prev.data : NO_ROWS
++          // una recarga no debe borrar ni deshacer lo que el usuario acaba de hacer.
+           for (const key of pendingKeys) {
+-            const mine = local.find((row) => keyOf(row) === key)
++            const mine = base.data.find((row) => keyOf(row) === key)
+             data = removeRow(data, key, keyOf)
+             if (mine !== undefined) data = upsertRow(data, mine, keyOf, compare)
+           }
+-          const base = prev.scope === scope ? prev : emptyState<T>(scope)
+           return { ...base, data, loading: false, error: null }
+         })
+       } catch (error) {
+         if (isStale()) return
+         bufferRef.current = null
+-        setState((prev) => {
+-          const base = prev.scope === scope ? prev : emptyState<T>(scope)
+-          return { ...base, loading: false, error: toError(error) }
+-        })
++        patchScope(scope, (base) => ({ ...base, loading: false, error: toError(error) }))
+       } finally {
+         if (loadControllerRef.current === controller) loadControllerRef.current = null
+       }
+     },
+-    [source, keyOf, compare, versionOf],
++    [source, keyOf, compare, versionOf, patchScope],
+   )
+ 
+   useEffect(() => {
+@@ -198,6 +202,7 @@ export function useRealtimeCollection<T extends object>(
+     pendingRef.current = new Map()
+     bufferRef.current = null
+     let active = true
++    let loadedOnce = false
+ 
+     const unsubscribe = source.subscribe?.(
+       scopeId,
+@@ -216,40 +221,48 @@ export function useRealtimeCollection<T extends object>(
+         }
+         applyRemote(scopeId, event)
+       },
+-      (status, error) => {
++      (status) => {
+         if (!active) return
+         if (status === 'SUBSCRIBED') {
+-          // Si la carga sigue en vuelo, el búfer cubre el hueco; si ya terminó, se recarga.
+-          if (bufferRef.current === null) void load(scopeId)
++          patchScope(scopeId, (base) => ({ ...base, realtime: 'live' }))
++          // Reconexión: durante la caída se pudieron perder eventos. Si la carga sigue en vuelo,
++          // el búfer cubre el hueco; si ya terminó, se recarga.
++          if (loadedOnce && bufferRef.current === null) void load(scopeId)
+           return
+         }
+-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+-          setState((prev) =>
+-            prev.scope === scopeId
+-              ? { ...prev, error: error ?? new Error(`Tiempo real no disponible (${status})`) }
+-              : prev,
+-          )
+-        }
++        // CHANNEL_ERROR, TIMED_OUT o CLOSED: los datos siguen siendo válidos; solo se marca el canal.
++        patchScope(scopeId, (base) => ({ ...base, realtime: 'offline' }))
+       },
+     )
+ 
+-    void load(scopeId)
++    void load(scopeId).then(() => {
++      loadedOnce = true
++    })
++
++    // Red de seguridad para eventos perdidos: recargar al volver a la pestaña o a la red.
++    const reloadIfVisible = () => {
++      if (active && loadedOnce && document.visibilityState === 'visible') void load(scopeId)
++    }
++    document.addEventListener('visibilitychange', reloadIfVisible)
++    window.addEventListener('online', reloadIfVisible)
+ 
+     return () => {
+       active = false
+       scopeRef.current = null
+       bufferRef.current = null
+       loadControllerRef.current?.abort()
++      document.removeEventListener('visibilitychange', reloadIfVisible)
++      window.removeEventListener('online', reloadIfVisible)
+       unsubscribe?.()
+     }
+-  }, [scopeId, source, load, keyOfEvent, applyRemote])
++  }, [scopeId, source, load, keyOfEvent, applyRemote, patchScope])
+ 
+   const refetch = useCallback(async () => {
+     const scope = scopeRef.current
+     if (scope === null) return
+-    setState((prev) => (prev.scope === scope ? { ...prev, loading: true, error: null } : prev))
++    patchScope(scope, (base) => ({ ...base, loading: true, error: null }))
+     await load(scope)
+-  }, [load])
++  }, [load, patchScope])
+ 
+   const beginPending = useCallback((key: string) => {
+     const pending = pendingRef.current
+@@ -276,6 +289,12 @@ export function useRealtimeCollection<T extends object>(
+       if (scope === null) throw new Error('No hay nada seleccionado')
+       return scope
+     }
++    const setData = (scope: string, change: (rows: readonly T[]) => readonly T[], mutationError?: Error | null) =>
++      patchScope(scope, (base) => ({
++        ...base,
++        data: change(base.data),
++        ...(mutationError === undefined ? {} : { mutationError }),
++      }))
+ 
+     return {
+       async mutateUpsert(row, request) {
+@@ -284,24 +303,24 @@ export function useRealtimeCollection<T extends object>(
+         if (key === null) throw new Error('La fila no tiene clave')
+         const entry = beginPending(key)
+         let previous: T | undefined
+-        updateScope(
++        setData(
+           scope,
+           (rows) => {
+             previous = rows.find((current) => keyOf(current) === key)
+             return upsertRow(rows, row, keyOf, compare)
+           },
+-          { mutationError: null },
++          null,
+         )
+         try {
+           const saved = await request()
+-          updateScope(scope, (rows) => upsertRow(rows, saved, keyOf, compare))
++          setData(scope, (rows) => upsertRow(rows, saved, keyOf, compare))
+           return saved
+         } catch (error) {
+-          updateScope(
++          setData(
+             scope,
+             (rows) =>
+               previous === undefined ? removeRow(rows, key, keyOf) : upsertRow(rows, previous, keyOf, compare),
+-            { mutationError: toError(error) },
++            toError(error),
+           )
+           throw error
+         } finally {
+@@ -313,22 +332,18 @@ export function useRealtimeCollection<T extends object>(
+         const scope = requireScope()
+         const entry = beginPending(key)
+         let previous: T | undefined
+-        updateScope(
++        setData(
+           scope,
+           (rows) => {
+             previous = rows.find((current) => keyOf(current) === key)
+             return removeRow(rows, key, keyOf)
+           },
+-          { mutationError: null },
++          null,
+         )
+         try {
+           await request()
+         } catch (error) {
+-          updateScope(
+-            scope,
+-            (rows) => (previous === undefined ? rows : upsertRow(rows, previous, keyOf, compare)),
+-            { mutationError: toError(error) },
+-          )
++          setData(scope, (rows) => (previous === undefined ? rows : upsertRow(rows, previous, keyOf, compare)), toError(error))
+           throw error
+         } finally {
+           endPending(scope, key, entry)
+@@ -337,15 +352,15 @@ export function useRealtimeCollection<T extends object>(
+ 
+       upsertConfirmed(row) {
+         const scope = scopeRef.current
+-        if (scope !== null) updateScope(scope, (rows) => upsertRow(rows, row, keyOf, compare))
++        if (scope !== null) setData(scope, (rows) => upsertRow(rows, row, keyOf, compare))
+       },
+ 
+       clearMutationError() {
+         setState((prev) => (prev.mutationError === null ? prev : { ...prev, mutationError: null }))
+       },
+     }
+-  }, [keyOf, compare, beginPending, endPending, updateScope])
++  }, [keyOf, compare, beginPending, endPending, patchScope])
+ 
+-  const { data, loading, error, mutationError, lastRemoteChange } = view
+-  return { data, loading, error, mutationError, lastRemoteChange, refetch, controls }
++  const { data, loading, error, mutationError, lastRemoteChange, realtime } = view
++  return { data, loading, error, mutationError, lastRemoteChange, realtime, refetch, controls }
+ }
+diff --git a/bitacora/v2/src/hooks/useTasks.test.tsx b/bitacora/v3/src/hooks/useTasks.test.tsx
+index 4e7a2e3..02cb19a 100644
+--- a/bitacora/v2/src/hooks/useTasks.test.tsx
++++ b/bitacora/v3/src/hooks/useTasks.test.tsx
+@@ -38,12 +38,14 @@ describe('useTasks · carga', () => {
+ 
+   it('expone el error de carga y se recupera con refetch', async () => {
+     const a = makeTask()
+-    const { hook, repository } = setup([a])
++    const { hook, repository } = setup([a], PROJECT_B)
++    await waitFor(() => expect(hook.result.current.loading).toBe(false))
++    // La próxima carga (la del proyecto A) falla; v2 la consumía con la carga de B.
+     repository.list.mockRejectedValueOnce(new Error('sin red'))
+-    hook.rerender({ id: PROJECT_B })
+     hook.rerender({ id: PROJECT_A })
+     await waitFor(() => expect(hook.result.current.error?.message).toBe('sin red'))
+     expect(hook.result.current.loading).toBe(false)
++    expect(hook.result.current.tasks).toEqual([])
+     await act(() => hook.result.current.refetch())
+     expect(hook.result.current.error).toBeNull()
+     expect(hook.result.current.tasks).toEqual([a])
+@@ -52,6 +54,7 @@ describe('useTasks · carga', () => {
+   it('sin proyecto (null) no carga ni abre canal', () => {
+     const { hook, repository } = setup([], null)
+     expect(hook.result.current.loading).toBe(false)
++    expect(hook.result.current.realtime).toBe('off')
+     expect(repository.list).not.toHaveBeenCalled()
+     expect(repository.subscribe).not.toHaveBeenCalled()
+   })
+@@ -134,6 +137,26 @@ describe('useTasks · mutaciones optimistas', () => {
+     })
+     expect(hook.result.current.tasks).toEqual([a, b, c])
+   })
++
++  it('un cambio ajeno que llega durante una edición propia fallida no se pierde', async () => {
++    const a = makeTask({ title: 'original' })
++    const { hook, repository, emit } = setup([a])
++    await waitFor(() => expect(hook.result.current.tasks).toEqual([a]))
++    const reply = deferred<Task>()
++    repository.update.mockReturnValueOnce(reply.promise)
++    let pending: Promise<Task> = Promise.resolve(a)
++    act(() => {
++      pending = hook.result.current.updateTask(a.id, { status: 'done' })
++    })
++    const theirs = { ...a, title: 'renombrada por otro', updated_at: '2026-11-10T14:00:00.000Z' }
++    act(() => emit({ type: 'UPDATE', row: theirs })) // diferido: hay una mutación propia en vuelo
++    expect(hook.result.current.tasks[0]?.status).toBe('done')
++    await act(async () => {
++      reply.reject(new Error('timeout'))
++      await pending.catch(() => {})
++    })
++    expect(hook.result.current.tasks).toEqual([theirs]) // se revierte lo propio y gana lo ajeno
++  })
+ })
+ 
+ describe('useTasks · tiempo real', () => {
+@@ -157,7 +180,7 @@ describe('useTasks · tiempo real', () => {
+     expect(hook.result.current.lastRemoteChange).toMatchObject({ type: 'DELETE', row: { title: 'De otro usuario' } })
+   })
+ 
+-  it('ignora el INSERT de otro proyecto y el DELETE de una fila ajena', async () => {
++  it('ignora el DELETE de una fila ajena', async () => {
+     const a = makeTask()
+     const { hook, emit } = setup([a])
+     await waitFor(() => expect(hook.result.current.loading).toBe(false))
+@@ -190,6 +213,46 @@ describe('useTasks · tiempo real', () => {
+     expect(hook.result.current.tasks).toEqual([saved])
+     expect(hook.result.current.lastRemoteChange).toBeNull() // el eco propio no se anuncia
+   })
++
++  it('un CHANNEL_ERROR marca el canal como desconectado sin convertirlo en error de carga', async () => {
++    const a = makeTask()
++    const { hook, status } = setup([a])
++    await waitFor(() => expect(hook.result.current.loading).toBe(false))
++    expect(hook.result.current.realtime).toBe('connecting')
++    act(() => status('SUBSCRIBED'))
++    expect(hook.result.current.realtime).toBe('live')
++    act(() => status('CHANNEL_ERROR'))
++    expect(hook.result.current.realtime).toBe('offline')
++    expect(hook.result.current.error).toBeNull()
++    expect(hook.result.current.tasks).toEqual([a])
++  })
++
++  it('al reconectar (SUBSCRIBED de nuevo) recarga y recupera el cambio perdido', async () => {
++    const a = makeTask({ title: 'antes' })
++    const { hook, status, setServerRow, repository } = setup([a])
++    await waitFor(() => expect(hook.result.current.loading).toBe(false))
++    act(() => status('SUBSCRIBED'))
++    act(() => status('CHANNEL_ERROR'))
++    const lost = { ...a, title: 'cambiada mientras el canal estaba caído', updated_at: '2026-11-10T15:00:00.000Z' }
++    setServerRow(lost) // el evento de este cambio nunca llega
++    const calls = repository.list.mock.calls.length
++    act(() => status('SUBSCRIBED'))
++    await waitFor(() => expect(hook.result.current.tasks).toEqual([lost]))
++    expect(repository.list.mock.calls.length).toBe(calls + 1)
++    expect(hook.result.current.realtime).toBe('live')
++  })
++
++  it('al volver a la pestaña recarga (red de seguridad para eventos perdidos)', async () => {
++    const a = makeTask({ title: 'antes' })
++    const { hook, setServerRow } = setup([a])
++    await waitFor(() => expect(hook.result.current.loading).toBe(false))
++    const lost = { ...a, title: 'cambiada sin evento', updated_at: '2026-11-10T15:00:00.000Z' }
++    setServerRow(lost)
++    act(() => {
++      document.dispatchEvent(new Event('visibilitychange'))
++    })
++    await waitFor(() => expect(hook.result.current.tasks).toEqual([lost]))
++  })
+ })
+ 
+ describe('useTasks · ciclo de vida', () => {
+@@ -252,7 +315,9 @@ describe('useTasks · ciclo de vida', () => {
+     await act(async () => {
+       pendingLists[0]?.reply.resolve([makeTask()])
+       emit({ type: 'INSERT', row: makeTask() })
++      document.dispatchEvent(new Event('visibilitychange')) // el listener también se quitó
+     })
+     expect(errors).not.toHaveBeenCalled()
++    expect(pendingLists).toHaveLength(1)
+   })
+ })
+diff --git a/bitacora/v2/src/hooks/useTasks.ts b/bitacora/v3/src/hooks/useTasks.ts
+index 8a8f717..e28ed38 100644
+--- a/bitacora/v2/src/hooks/useTasks.ts
++++ b/bitacora/v3/src/hooks/useTasks.ts
+@@ -22,6 +22,11 @@
+ // ─── Limpieza y respuestas tardías ─────────────────────────────────────────────────────────
+ //   Al cambiar de projectId o desmontar: removeChannel del canal del proyecto anterior, abort de
+ //   la carga en vuelo, y ninguna respuesta (de carga o de mutación) toca el estado después.
++//
++// ─── Seguridad ─────────────────────────────────────────────────────────────────────────────
++//   El hook no filtra por usuario: lo hace la RLS en la base. La consulta y el canal llevan el JWT
++//   de la sesión, así que un usuario fuera del proyecto recibe una lista vacía y ningún
++//   INSERT/UPDATE (medido con tres usuarios en Supabase local).
+ import { useCallback } from 'react'
+ import type { NewTaskFields, Task, UpdateTaskInput } from '../types'
+ import { useRepositories } from './RepositoriesContext'
+@@ -29,6 +34,7 @@ import {
+   useRealtimeCollection,
+   type Compare,
+   type KeyOf,
++  type RealtimeStatus,
+   type RemoteChange,
+   type VersionOf,
+ } from './useRealtimeCollection'
+@@ -36,8 +42,10 @@ import {
+ export type UseTasksResult = {
+   readonly tasks: readonly Task[]
+   readonly loading: boolean
+-  /** Error de carga o de tiempo real. */
++  /** Error de la carga. Un problema del canal no va aquí: va en `realtime`. */
+   readonly error: Error | null
++  /** Estado del canal Realtime: 'connecting' | 'live' | 'offline' ('off' sin proyecto). */
++  readonly realtime: RealtimeStatus
+   /** Error de la última mutación (el cambio optimista ya se revirtió). */
+   readonly mutationError: Error | null
+   /** Último cambio de OTRO usuario que llegó por tiempo real (los ecos propios no cuentan). */
+@@ -59,7 +67,7 @@ const taskVersion: VersionOf<Task> = (row) => Date.parse(row.updated_at)
+ /** @param projectId proyecto seleccionado; null = sin proyecto (lista vacía, sin canal). */
+ export function useTasks(projectId: string | null): UseTasksResult {
+   const { tasks: repository } = useRepositories()
+-  const { data, loading, error, mutationError, lastRemoteChange, refetch, controls } =
++  const { data, loading, error, realtime, mutationError, lastRemoteChange, refetch, controls } =
+     useRealtimeCollection({
+       scopeId: projectId,
+       source: repository,
+@@ -116,6 +124,7 @@ export function useTasks(projectId: string | null): UseTasksResult {
+     tasks: data,
+     loading,
+     error,
++    realtime,
+     mutationError,
+     lastRemoteChange,
+     createTask,
+diff --git a/bitacora/v2/src/test/helpers.ts b/bitacora/v3/src/test/helpers.ts
+index 63cb247..3d0c457 100644
+--- a/bitacora/v2/src/test/helpers.ts
++++ b/bitacora/v3/src/test/helpers.ts
+@@ -1,7 +1,13 @@
+ // Utilidades de prueba: promesas controlables, filas de ejemplo y un TaskRepository falso
+-// cuyo canal "Realtime" se dispara a mano desde la prueba.
++// cuyo canal "Realtime" (eventos y estado del canal) se dispara a mano desde la prueba.
+ import { vi } from 'vitest'
+-import type { ChangeEvent, ChangeListener, TaskRepository } from '../services/types'
++import type {
++  ChangeEvent,
++  ChangeListener,
++  StatusListener,
++  SubscriptionStatus,
++  TaskRepository,
++} from '../services/types'
+ import type { Task } from '../types'
+ 
+ export type Deferred<T> = {
+@@ -41,7 +47,11 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
+   }
+ }
+ 
+-type Subscriber = { readonly scope: string; readonly onChange: ChangeListener<Task> }
++type Subscriber = {
++  readonly scope: string
++  readonly onChange: ChangeListener<Task>
++  readonly onStatus: StatusListener | undefined
++}
+ 
+ /**
+  * Repositorio falso. Por defecto list() responde con las filas del proyecto; con
+@@ -65,8 +75,8 @@ export function createFakeTaskRepository(initial: readonly Task[] = []) {
+     create: vi.fn<TaskRepository['create']>(),
+     update: vi.fn<TaskRepository['update']>(),
+     remove: vi.fn<TaskRepository['remove']>(),
+-    subscribe: vi.fn((scope: string, onChange: ChangeListener<Task>) => {
+-      const subscriber = { scope, onChange }
++    subscribe: vi.fn((scope: string, onChange: ChangeListener<Task>, onStatus?: StatusListener) => {
++      const subscriber = { scope, onChange, onStatus }
+       subscribers.add(subscriber)
+       return () => {
+         if (subscribers.delete(subscriber)) control.unsubscribed += 1
+@@ -82,5 +92,15 @@ export function createFakeTaskRepository(initial: readonly Task[] = []) {
+     }
+   }
+ 
+-  return { repository, emit, pendingLists, control, subscriberCount: () => subscribers.size }
++  /** Cambia el estado del canal (SUBSCRIBED, CHANNEL_ERROR…) en todos los suscriptores. */
++  function status(value: SubscriptionStatus): void {
++    for (const subscriber of [...subscribers]) subscriber.onStatus?.(value)
++  }
++
++  /** Cambia una fila "en el servidor" sin emitir evento (simula un evento perdido). */
++  function setServerRow(task: Task): void {
++    rows.set(task.id, task)
++  }
++
++  return { repository, emit, status, setServerRow, pendingLists, control, subscriberCount: () => subscribers.size }
+ }
+diff --git a/bitacora/v3/src/test/renderWithDemo.tsx b/bitacora/v3/src/test/renderWithDemo.tsx
+new file mode 100644
+index 0000000..9ad3784
+--- /dev/null
++++ b/bitacora/v3/src/test/renderWithDemo.tsx
+@@ -0,0 +1,22 @@
++// Monta componentes con repositorios del modo demo (o con reemplazos) para las pruebas de UI.
++// Vive en src/test/ y no en src/components/: la regla de capas prohíbe que la UI importe
++// src/services, y las pruebas del componente no necesitan saltársela.
++import { render } from '@testing-library/react'
++import type { ReactElement } from 'react'
++import { RepositoriesProvider } from '../hooks/RepositoriesContext'
++import { createDemoRepositories, DEMO_USER_ID } from '../services'
++import type { Repositories } from '../services/types'
++
++export type { AuthRepository, Repositories } from '../services/types'
++
++export { DEMO_USER_ID }
++export const DEMO_PROJECT_ID = '00000000-0000-4000-8000-000000000101'
++
++export function renderWithDemo(ui: ReactElement, override: Partial<Repositories> = {}) {
++  const repositories: Repositories = { ...createDemoRepositories({ latencyMs: 0 }), ...override }
++  return { repositories, ...render(<RepositoriesProvider value={repositories}>{ui}</RepositoriesProvider>) }
++}
++
++export function demoRepositories(override: Partial<Repositories> = {}): Repositories {
++  return { ...createDemoRepositories({ latencyMs: 0 }), ...override }
++}
+diff --git a/bitacora/v3/src/test/setup.ts b/bitacora/v3/src/test/setup.ts
+new file mode 100644
+index 0000000..ae6e1b4
+--- /dev/null
++++ b/bitacora/v3/src/test/setup.ts
+@@ -0,0 +1,9 @@
++// Se carga antes de cada archivo de pruebas (vite.config.ts → test.setupFiles).
++// Testing Library solo se limpia sola si Vitest corre con `globals: true`; aquí no, así que el
++// DOM de una prueba se quedaba en la siguiente ("Found multiple elements", fallo real de v2).
++import { cleanup } from '@testing-library/react'
++import { afterEach } from 'vitest'
++
++afterEach(() => {
++  cleanup()
++})
