@@ -1,0 +1,52 @@
+Pruebas con detalle · 2026-11-10 15:06:41 -0500 · commit 2e1309a
+$ pnpm exec vitest run --reporter=verbose
+
+ RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
+
+ ✓ src/hooks/reconcile.test.ts > reconcile > upsertRow inserta, reemplaza por clave y es idempotente 95ms
+ ✓ src/hooks/reconcile.test.ts > reconcile > sameRow ignora el orden de las columnas (payload Realtime frente a respuesta HTTP) 2ms
+ ✓ src/hooks/reconcile.test.ts > reconcile > removeRow devuelve el mismo arreglo si la clave no está 1ms
+ ✓ src/hooks/reconcile.test.ts > reconcile > applyChange: DELETE con solo la clave primaria quita la fila 4ms
+ ✓ src/hooks/reconcile.test.ts > reconcile > applyChange: DELETE de una fila ajena es un no-op 4ms
+ ✓ src/hooks/reconcile.test.ts > reconcile > applyChange: descarta un UPDATE más viejo que la fila actual 3ms
+ ✓ src/services/supabase/useTasks.supabase.test.tsx > useTasks + supabase-js: limpieza de canales > un canal por proyecto; removeChannel al cambiar de proyecto y al desmontar 299ms
+ ✓ src/services/supabase/useTasks.supabase.test.tsx > useTasks + supabase-js: limpieza de canales > en StrictMode (montar, desmontar, montar) no quedan canales huérfanos 115ms
+ ✓ src/hooks/RepositoriesContext.test.tsx > RepositoriesProvider > sin variables de Supabase muestra "Preparando…" y luego entra en modo demo 270ms
+ ✓ src/hooks/useComments.test.tsx > useComments > carga los comentarios de la tarea y crea uno de forma optimista 207ms
+ ✓ src/hooks/useComments.test.tsx > useComments > si crear falla, el comentario optimista desaparece y el error queda visible 118ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · carga > empieza en loading y entrega las tareas del proyecto 250ms
+ ✓ src/components/TaskBoard.test.tsx > TaskBoard (ejemplo de implementación) > muestra la carga y luego las tareas del proyecto 482ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · carga > expone el error de carga y se recupera con refetch 181ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · carga > sin proyecto (null) no carga ni abre canal 16ms
+ ✓ src/components/Workspace.test.tsx > Workspace · sesión > sin sesión muestra el login y no consulta proyectos; al entrar, los carga 774ms
+ ✓ src/components/Workspace.test.tsx > Workspace · sesión > al cerrar sesión vuelve al login 98ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · mutaciones optimistas > createTask pinta la tarea antes de que responda el servidor y la confirma 127ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · mutaciones optimistas > createTask revierte si el servidor falla y deja el error visible 96ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · mutaciones optimistas > updateTask pinta el cambio y, si falla, vuelve EXACTAMENTE a la fila previa 84ms
+ ✓ src/components/TaskBoard.test.tsx > TaskBoard (ejemplo de implementación) > valida el título vacío y crea una tarea 382ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · mutaciones optimistas > deleteTask quita la fila al instante y la devuelve a su lugar si falla 80ms
+ ✓ src/components/TaskBoard.test.tsx > TaskBoard (ejemplo de implementación) > si la carga falla muestra el error y «Reintentar» la recupera (?demo=error) 122ms
+ ✓ src/components/TaskBoard.test.tsx > TaskBoard (ejemplo de implementación) > anuncia el cambio de otro usuario que llega por tiempo real 125ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · mutaciones optimistas > un cambio ajeno que llega durante una edición propia fallida no se pierde 79ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · tiempo real > aplica INSERT, UPDATE y DELETE de otros usuarios y avisa del último 78ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · tiempo real > ignora el DELETE de una fila ajena 73ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · tiempo real > no duplica el eco de un create propio, aunque llegue ANTES que la respuesta HTTP 80ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · tiempo real > un CHANNEL_ERROR marca el canal como desconectado sin convertirlo en error de carga 76ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · tiempo real > al reconectar (SUBSCRIBED de nuevo) recarga y recupera el cambio perdido 153ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · tiempo real > el primer SUBSCRIBED llega con la consulta inicial ya enviada: recarga y no pierde el cambio 16ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · tiempo real > al volver a la pestaña recarga (red de seguridad para eventos perdidos) 173ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · ciclo de vida > al cambiar de proyecto cierra el canal anterior y descarta la respuesta tardía 48ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · ciclo de vida > una mutación que termina después de cambiar de proyecto no toca el estado nuevo 159ms
+ ✓ src/hooks/useTasks.test.tsx > useTasks · ciclo de vida > al desmontar aborta la carga, cierra el canal y no hay setState después 84ms
+ ✓ src/services/supabase/realtime.test.ts > subscribeToTable (supabase-js con cliente falso) > se suscribe a postgres_changes filtrado por project_id y cierra con removeChannel 25ms
+ ✓ src/services/supabase/realtime.test.ts > subscribeToTable (supabase-js con cliente falso) > normaliza INSERT, UPDATE y DELETE (el DELETE solo con la clave) 4ms
+ ✓ src/services/supabase/realtime.test.ts > subscribeToTable (supabase-js con cliente falso) > rechaza un valor de filtro que no es UUID (no se puede inyectar otro filtro) 4ms
+
+ Test Files  8 passed (8)
+      Tests  38 passed (38)
+   Start at  15:06:46
+   Duration  19.23s (environment 68%, setup 23%, tests 6%, transform 2%, import 1%, worker 1%)
+
+    Isolate  8 workers spawned · ~7.65s startup each (spawn + environment, per file)
+             at least ~1.09s faster with isolate: false — reuses workers across files instead of one per file
+
