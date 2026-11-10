@@ -1,0 +1,40 @@
+Prueba de RLS y Realtime contra Supabase local · 2026-11-10 14:01:13 -0500 · commit 2b16b21
+API: http://127.0.0.1:54321 (local) · migración: 20261110000000_esquema_taskmaster.sql
+
+TAP version 13
+ok 1 - signUp de ana, beto y carla (Auth local, sin confirmación de correo)
+ok 2 - el trigger de auth.users creó el perfil con display_name # {"display_name":"ana"}
+ok 3 - ana crea un proyecto; created_by lo pone la base
+ok 4 - el trigger agregó a ana como owner # {"role":"owner"}
+ok 5 - ana (owner) agrega a beto como miembro
+ok 6 - carla NO puede meterse sola al proyecto # new row violates row-level security policy for table "project_members"
+ok 7 - carla no ve el proyecto (lista vacía, no error) # []
+ok 8 - beto se suscribe a postgres_changes con filtro project_id=eq # SUBSCRIBED
+ok 9 - carla se suscribe (con filtro y sin filtro) # SUBSCRIBED / SUBSCRIBED
+ok 10 - ana crea una tarea; created_by = ana
+not ok 11 - beto recibe el INSERT en tiempo real # no llegó
+ok 12 - ana mueve la tarea a in_progress
+ok 13 - beto recibe el UPDATE con el estado nuevo # old.status=todo
+ok 14 - beto crea una tarea con id generado en el cliente (grant insert (id))
+ok 15 - un id repetido se rechaza (no sobrescribe la fila existente) # duplicate key value violates unique constraint "tasks_pkey"
+ok 16 - mandar el id no le sirve a carla para entrar al proyecto # new row violates row-level security policy for table "tasks"
+ok 17 - carla no ve las tareas del proyecto # []
+ok 18 - carla no puede crear tareas en el proyecto # new row violates row-level security policy for table "tasks"
+ok 19 - el update de carla no afecta filas # []
+ok 20 - el delete de carla no afecta filas # []
+ok 21 - beto (miembro) no puede reescribir created_by # permission denied for table tasks
+ok 22 - nadie puede mover una tarea de proyecto (sin grant de update en project_id) # permission denied for table tasks
+ok 23 - anon (sin sesión) no lee tareas # permission denied for table tasks
+ok 24 - beto comenta; author_id lo pone la base
+ok 25 - carla no ve los comentarios # []
+ok 26 - ana borra la tarea
+ok 27 - beto recibe el DELETE (filtro project_id con replica identity full) # columnas de old: id
+ok 28 - carla no recibe INSERT ni UPDATE de un proyecto ajeno # eventos: [DELETE,DELETE,DELETE,DELETE]
+# DELETE recibidos por carla: 4 (columnas de old: id)
+ok 29 - si a carla le llega un DELETE ajeno, solo trae la clave primaria (no filtra datos) # 4 DELETE
+ok 30 - el último owner no puede salirse del proyecto # Un proyecto no puede quedarse sin owner
+ok 31 - ana borra el proyecto (la cascada pasa el trigger del último owner)
+ok 32 - removeChannel deja los clientes sin canales
+1..32
+# 31 de 32 pasan
+(código de salida: 1)

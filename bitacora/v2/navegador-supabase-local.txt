@@ -1,0 +1,26 @@
+Prueba manual de v2 en el navegador contra el Supabase LOCAL (CLI 2.122.0, con Realtime)
+Fecha: 2026-11-10 ~14:05 -0500 · commit de v2 · `pnpm exec vite --port 5180` con .env.local apuntando al local
+
+Preparación: `bash herramientas/con-supabase-local.sh node herramientas/preparar-navegador-local.mjs <sesiones.json>`
+  → "Proyecto e6707aeb-… listo: ana (owner) y beto (miembro), 2 tareas."
+La sesión de ana se inyectó en localStorage (clave sb-127-auth-token) del navegador; beto actuó
+desde otro proceso con `herramientas/actuar-como-beto.mjs`.
+
+1. Carga como ana (texto de la página, recortado):
+   "Proyecto Lanzamiento · Por hacer (1) Revisar las políticas RLS · Responsable: Beto (miembro)
+    · En curso (1) Escribir el plan de lanzamiento · Responsable: Ana (owner) · Hecha (0)
+    · Miembros: Ana (owner) Owner, Beto (miembro) Miembro"
+
+2. beto: crear  → en la pestaña de ana, sin recargar (2 s después):
+   "En tiempo real: Otro usuario creó «Preparar la demo (creada por Beto)»"  y la tarjeta aparece.
+
+3. ana crea «Tarea propia de Ana» desde el formulario → filas con ese título: 1 (el eco Realtime
+   no la duplicó); total de tarjetas: 4; el aviso de tiempo real sigue siendo el de beto (el eco
+   propio no se anuncia).
+
+4. beto: mover → "En tiempo real: Otro usuario actualizó «Preparar la demo (creada por Beto)»
+   (ahora: Hecha)"; columnas: Por hacer: Revisar las políticas RLS | Tarea propia de Ana ·
+   En curso: Escribir el plan de lanzamiento · Hecha: Preparar la demo (creada por Beto)
+
+No probado en este paso: el formulario de inicio de sesión (el navegador automatizado no escribe
+contraseñas; la sesión se inyectó). Ver la revisión del flujo de login en el prompt 3.

@@ -17,7 +17,13 @@ for base in main.tsx index.css vite-env.d.ts; do
   [ -f "src/$base" ] || git show "$BASE:src/$base" > "src/$base"
 done
 # Configuración: la de la versión si la trae; si no, la del commit inicial.
-for conf in .oxlintrc.json tsconfig.app.json vite.config.ts; do
+# La configuración de oxlint de cada versión se guarda SIN punto (bitacora/vN/oxlintrc.json): un
+# .oxlintrc.json dentro de bitacora/vN/ es una configuración anidada que oxlint descubre y aplica a
+# esa carpeta, y su ignorePatterns ("bitacora/**") ya no coincide desde ahí (lo destapó v2).
+if [ -f "$DIR/oxlintrc.json" ]; then cp "$DIR/oxlintrc.json" .oxlintrc.json
+elif [ -f "$DIR/.oxlintrc.json" ]; then cp "$DIR/.oxlintrc.json" .oxlintrc.json
+else git show "$BASE:.oxlintrc.json" > .oxlintrc.json; fi
+for conf in tsconfig.app.json vite.config.ts; do
   if [ -f "$DIR/$conf" ]; then cp "$DIR/$conf" "$conf"; else git show "$BASE:$conf" > "$conf"; fi
 done
 # Migraciones SQL: las de la versión reemplazan a las anteriores.
