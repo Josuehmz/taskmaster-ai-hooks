@@ -1,0 +1,93 @@
+Fecha: 2026-11-10 13:26:12 -0500
+CLI: supabase 2.122.0
+Comando: supabase start -x studio,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta --agent no
+----
+Starting database...
+Initialising schema...
+v1.84.19: Pulling from supabase/storage-api
+44136fa355b3: Already exists
+f78b0d5104f0: Pulling fs layer
+402bbcbdc983: Pulling fs layer
+5e9b4a97f639: Pulling fs layer
+716842ac9449: Pulling fs layer
+3006729b3e50: Pulling fs layer
+720ffe7ad440: Pulling fs layer
+c667ff9502fa: Pulling fs layer
+40cafbe11ed2: Pulling fs layer
+bf455cdbbabe: Pulling fs layer
+62e4715136ab: Pulling fs layer
+cf21426a3250: Pulling fs layer
+258ab0d9d5b1: Pulling fs layer
+3ff3ea6b2983: Pulling fs layer
+041cdd88dd6c: Pulling fs layer
+1d7631639670: Download complete
+f78b0d5104f0: Download complete
+402bbcbdc983: Download complete
+5e9b4a97f639: Download complete
+3006729b3e50: Download complete
+5e9b4a97f639: Pull complete
+720ffe7ad440: Download complete
+716842ac9449: Download complete
+bf455cdbbabe: Download complete
+62e4715136ab: Download complete
+cf21426a3250: Download complete
+041cdd88dd6c: Download complete
+258ab0d9d5b1: Download complete
+3ff3ea6b2983: Download complete
+716842ac9449: Pull complete
+3006729b3e50: Pull complete
+402bbcbdc983: Pull complete
+c667ff9502fa: Download complete
+40cafbe11ed2: Download complete
+40cafbe11ed2: Pull complete
+62e4715136ab: Pull complete
+cf21426a3250: Pull complete
+258ab0d9d5b1: Pull complete
+720ffe7ad440: Pull complete
+bf455cdbbabe: Pull complete
+c667ff9502fa: Pull complete
+3ff3ea6b2983: Pull complete
+041cdd88dd6c: Pull complete
+f78b0d5104f0: Pull complete
+Digest: sha256:a0420573837ee08c0afdc9cd01f90b4b8027579da99e0b9a159fe912ef756c99
+Status: Downloaded newer image for public.ecr.aws/supabase/storage-api:v1.84.19
+public.ecr.aws/supabase/storage-api:v1.84.19
+Seeding globals from roles.sql...
+Applying migration 20261110000000_esquema_taskmaster.sql...
+│
+▲  no files matched pattern: supabase/seed.sql
+Starting containers...
+Waiting for health checks...
+Started supabase local development setup.
+
+
+╭─────────────────────────────────────────────────╮
+│ 🌐 APIs                                         │
+├─────────────┬───────────────────────────────────┤
+│ Project URL │ http://127.0.0.1:54321            │
+│ REST        │ http://127.0.0.1:54321/rest/v1    │
+│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │
+╰─────────────┴───────────────────────────────────╯
+
+╭───────────────────────────────────────────────────────────────╮
+│ ⛁ Database                                                    │
+├─────┬─────────────────────────────────────────────────────────┤
+│ URL │ postgresql://postgres:<redactado>@127.0.0.1:54322/postgres │
+╰─────┴─────────────────────────────────────────────────────────╯
+
+╭──────────────────────────────────────────────────────────────╮
+│ 🔑 Authentication Keys                                       │
+├─────────────┬────────────────────────────────────────────────┤
+│ Publishable │ <redactado> │
+│ Secret      │ <redactado>      │
+╰─────────────┴────────────────────────────────────────────────╯
+
+Local dev security notice
+All services bind to 0.0.0.0 (network-accessible, not just localhost)
+API keys and JWT secrets are shared defaults. Do not use in production
+Studio, pgMeta (/pg/*), and analytics have no authentication
+
+A new version of Supabase CLI is available: v3.1.0 (currently installed v2.122.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+----
+(código de salida: 0)

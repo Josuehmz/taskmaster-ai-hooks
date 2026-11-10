@@ -1,0 +1,34 @@
+Fecha: 2026-11-10 13:37:16 -0500
+CLI: supabase 2.122.0
+Comando: supabase status --agent no
+----
+Not linked.
+Stopped services: [supabase_inbucket_taskmaster-ai-hooks supabase_storage_taskmaster-ai-hooks supabase_imgproxy_taskmaster-ai-hooks supabase_pg_meta_taskmaster-ai-hooks supabase_studio_taskmaster-ai-hooks supabase_edge_runtime_taskmaster-ai-hooks supabase_analytics_taskmaster-ai-hooks supabase_vector_taskmaster-ai-hooks supabase_pooler_taskmaster-ai-hooks]
+supabase local development setup is running.
+
+
+╭─────────────────────────────────────────────────╮
+│ 🌐 APIs                                         │
+├─────────────┬───────────────────────────────────┤
+│ Project URL │ http://127.0.0.1:54321            │
+│ REST        │ http://127.0.0.1:54321/rest/v1    │
+│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │
+╰─────────────┴───────────────────────────────────╯
+
+╭───────────────────────────────────────────────────────────────╮
+│ ⛁ Database                                                    │
+├─────┬─────────────────────────────────────────────────────────┤
+│ URL │ postgresql://postgres:<redactado>@127.0.0.1:54322/postgres │
+╰─────┴─────────────────────────────────────────────────────────╯
+
+╭──────────────────────────────────────────────────────────────╮
+│ 🔑 Authentication Keys                                       │
+├─────────────┬────────────────────────────────────────────────┤
+│ Publishable │ <redactado> │
+│ Secret      │ <redactado>      │
+╰─────────────┴────────────────────────────────────────────────╯
+
+A new version of Supabase CLI is available: v3.1.0 (currently installed v2.122.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+----
+(código de salida: 0)

@@ -1,0 +1,37 @@
+Prueba de RLS y Realtime contra Supabase local · 2026-11-10 13:36:35 -0500 · commit 054935f
+API: http://127.0.0.1:54321 (local) · migración: 20261110000000_esquema_taskmaster.sql
+
+TAP version 13
+ok 1 - signUp de ana, beto y carla (Auth local, sin confirmación de correo)
+ok 2 - el trigger de auth.users creó el perfil con display_name # {"display_name":"ana"}
+ok 3 - ana crea un proyecto; created_by lo pone la base
+ok 4 - el trigger agregó a ana como owner # {"role":"owner"}
+ok 5 - ana (owner) agrega a beto como miembro
+ok 6 - carla NO puede meterse sola al proyecto # new row violates row-level security policy for table "project_members"
+ok 7 - carla no ve el proyecto (lista vacía, no error) # []
+ok 8 - beto se suscribe a postgres_changes con filtro project_id=eq # SUBSCRIBED
+ok 9 - carla se suscribe (con filtro y sin filtro) # SUBSCRIBED / SUBSCRIBED
+ok 10 - ana crea una tarea; created_by = ana
+ok 11 - beto recibe el INSERT en tiempo real # title=Escribir el plan
+ok 12 - ana mueve la tarea a in_progress
+ok 13 - beto recibe el UPDATE con el estado nuevo # old.status=todo
+ok 14 - carla no ve las tareas del proyecto # []
+ok 15 - carla no puede crear tareas en el proyecto # new row violates row-level security policy for table "tasks"
+ok 16 - el update de carla no afecta filas # []
+ok 17 - el delete de carla no afecta filas # []
+ok 18 - beto (miembro) no puede reescribir created_by # permission denied for table tasks
+ok 19 - nadie puede mover una tarea de proyecto (sin grant de update en project_id) # permission denied for table tasks
+ok 20 - anon (sin sesión) no lee tareas # permission denied for table tasks
+ok 21 - beto comenta; author_id lo pone la base
+ok 22 - carla no ve los comentarios # []
+ok 23 - ana borra la tarea
+ok 24 - beto recibe el DELETE (filtro project_id con replica identity full) # columnas de old: id
+ok 25 - carla no recibe INSERT ni UPDATE de un proyecto ajeno # eventos: [DELETE,DELETE]
+# DELETE recibidos por carla: 2 (columnas de old: id)
+ok 26 - si a carla le llega un DELETE ajeno, solo trae la clave primaria (no filtra datos) # 2 DELETE
+ok 27 - el último owner no puede salirse del proyecto # Un proyecto no puede quedarse sin owner
+ok 28 - ana borra el proyecto (la cascada pasa el trigger del último owner)
+ok 29 - removeChannel deja los clientes sin canales
+1..29
+# 29 de 29 pasan
+(código de salida: 0)

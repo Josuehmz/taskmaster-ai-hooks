@@ -1,0 +1,15 @@
+Fecha: 2026-11-10 13:37:26 -0500
+CLI: supabase 2.122.0
+Comando: supabase migration list --local --agent no
+----
+Connecting to local database...
+
+  
+   Local            | Remote           | Time (UTC)            
+  ------------------|------------------|-----------------------
+   `20261110000000` | `20261110000000` | `2026-11-10 00:00:00` 
+
+A new version of Supabase CLI is available: v3.1.0 (currently installed v2.122.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+----
+(código de salida: 0)
