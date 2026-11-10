@@ -7,8 +7,13 @@ import type { Task } from '../types'
 import { RepositoriesProvider } from './RepositoriesContext'
 import { useTasks } from './useTasks'
 
-function setup(initial: readonly Task[] = [], projectId: string | null = PROJECT_A) {
+function setup(
+  initial: readonly Task[] = [],
+  projectId: string | null = PROJECT_A,
+  before?: (fake: ReturnType<typeof createFakeTaskRepository>) => void,
+) {
   const fake = createFakeTaskRepository(initial)
+  before?.(fake)
   const repositories = { ...createDemoRepositories({ latencyMs: 0 }), tasks: fake.repository }
   const wrapper = ({ children }: { children: ReactNode }) => (
     <RepositoriesProvider value={repositories}>{children}</RepositoriesProvider>
@@ -239,6 +244,23 @@ describe('useTasks · tiempo real', () => {
     act(() => status('SUBSCRIBED'))
     await waitFor(() => expect(hook.result.current.tasks).toEqual([lost]))
     expect(repository.list.mock.calls.length).toBe(calls + 1)
+    expect(hook.result.current.realtime).toBe('live')
+  })
+
+  it('el primer SUBSCRIBED llega con la consulta inicial ya enviada: recarga y no pierde el cambio', async () => {
+    const a = makeTask({ title: 'antes' })
+    const { hook, status, setServerRow, pendingLists, control } = setup([a], PROJECT_A, (fake) => {
+      fake.control.holdLists = true // la consulta inicial sale y queda en vuelo con el estado "antes"
+    })
+    const changed = { ...a, title: 'cambiada antes de que el canal escuchara', updated_at: '2026-11-10T15:30:00.000Z' }
+    setServerRow(changed) // ocurre entre la consulta y el SUBSCRIBED: no hay evento
+    control.holdLists = false
+    act(() => status('SUBSCRIBED'))
+    await act(async () => {
+      pendingLists[0]?.reply.resolve([a]) // la respuesta de la consulta vieja llega tarde
+    })
+    await waitFor(() => expect(hook.result.current.tasks).toEqual([changed]))
+    expect(pendingLists[0]?.signal?.aborted).toBe(true)
     expect(hook.result.current.realtime).toBe('live')
   })
 

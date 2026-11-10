@@ -7,11 +7,15 @@
 //     render nunca muestra filas de otro scope. Al cambiar de scope o desmontar se cierra el canal
 //     (el repositorio llama a client.removeChannel), se aborta la carga en vuelo y scopeRef pasa a
 //     null: ninguna respuesta tardía, de carga o de mutación, vuelve a tocar el estado.
-//   - Sin huecos entre carga y canal: el canal se abre ANTES de la carga y los eventos que llegan
-//     con la carga en vuelo se reaplican sobre la respuesta (upsert idempotente por clave).
-//   - Recuperación tras una desconexión: cada SUBSCRIBED posterior a la carga (reconexión del
-//     canal) y cada vez que la pestaña vuelve a estar visible o el navegador vuelve a estar en
-//     línea, se recarga la lista desde el servidor.
+//   - Sin huecos entre carga y canal: el canal se pide ANTES de la carga y los eventos que llegan
+//     con la carga en vuelo se reaplican sobre la respuesta (upsert idempotente por clave). Pero
+//     el canal solo escucha desde su SUBSCRIBED, que con Supabase suele llegar DESPUÉS de que la
+//     consulta salió: un cambio en ese intervalo no está en la respuesta ni llega como evento.
+//     Por eso CADA SUBSCRIBED (el primero y los de cada reconexión) lanza una carga nueva que
+//     aborta la que estuviera en vuelo: la lista final siempre sale de una consulta hecha con el
+//     canal ya escuchando.
+//   - Recuperación como red de seguridad: también se recarga cuando la pestaña vuelve a estar
+//     visible o el navegador vuelve a estar en línea.
 //   - Mutaciones propias: se pintan al instante; si el servidor falla se restaura la fila previa
 //     exacta (o se quita la nueva), el error queda en `mutationError` y la promesa se rechaza.
 //   - Ecos: mientras una clave tiene una mutación propia en vuelo sus eventos se difieren; al
@@ -225,9 +229,10 @@ export function useRealtimeCollection<T extends object>(
         if (!active) return
         if (status === 'SUBSCRIBED') {
           patchScope(scopeId, (base) => ({ ...base, realtime: 'live' }))
-          // Reconexión: durante la caída se pudieron perder eventos. Si la carga sigue en vuelo,
-          // el búfer cubre el hueco; si ya terminó, se recarga.
-          if (loadedOnce && bufferRef.current === null) void load(scopeId)
+          // Siempre se recarga, aunque haya una carga en vuelo (v3 la dejaba seguir y fallaba): esa
+          // carga pudo salir antes de que el canal escuchara, o antes de la caída, y no trae lo que
+          // pasó entretanto. load() aborta la anterior; su respuesta tardía se descarta.
+          void load(scopeId)
           return
         }
         // CHANNEL_ERROR, TIMED_OUT o CLOSED: los datos siguen siendo válidos; solo se marca el canal.

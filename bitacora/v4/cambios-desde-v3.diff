@@ -1,0 +1,82 @@
+diff --git a/bitacora/v3/src/hooks/useRealtimeCollection.ts b/bitacora/v4/src/hooks/useRealtimeCollection.ts
+index 7b70ff5..e66bb58 100644
+--- a/bitacora/v3/src/hooks/useRealtimeCollection.ts
++++ b/bitacora/v4/src/hooks/useRealtimeCollection.ts
+@@ -7,11 +7,15 @@
+ //     render nunca muestra filas de otro scope. Al cambiar de scope o desmontar se cierra el canal
+ //     (el repositorio llama a client.removeChannel), se aborta la carga en vuelo y scopeRef pasa a
+ //     null: ninguna respuesta tardía, de carga o de mutación, vuelve a tocar el estado.
+-//   - Sin huecos entre carga y canal: el canal se abre ANTES de la carga y los eventos que llegan
+-//     con la carga en vuelo se reaplican sobre la respuesta (upsert idempotente por clave).
+-//   - Recuperación tras una desconexión: cada SUBSCRIBED posterior a la carga (reconexión del
+-//     canal) y cada vez que la pestaña vuelve a estar visible o el navegador vuelve a estar en
+-//     línea, se recarga la lista desde el servidor.
++//   - Sin huecos entre carga y canal: el canal se pide ANTES de la carga y los eventos que llegan
++//     con la carga en vuelo se reaplican sobre la respuesta (upsert idempotente por clave). Pero
++//     el canal solo escucha desde su SUBSCRIBED, que con Supabase suele llegar DESPUÉS de que la
++//     consulta salió: un cambio en ese intervalo no está en la respuesta ni llega como evento.
++//     Por eso CADA SUBSCRIBED (el primero y los de cada reconexión) lanza una carga nueva que
++//     aborta la que estuviera en vuelo: la lista final siempre sale de una consulta hecha con el
++//     canal ya escuchando.
++//   - Recuperación como red de seguridad: también se recarga cuando la pestaña vuelve a estar
++//     visible o el navegador vuelve a estar en línea.
+ //   - Mutaciones propias: se pintan al instante; si el servidor falla se restaura la fila previa
+ //     exacta (o se quita la nueva), el error queda en `mutationError` y la promesa se rechaza.
+ //   - Ecos: mientras una clave tiene una mutación propia en vuelo sus eventos se difieren; al
+@@ -225,9 +229,10 @@ export function useRealtimeCollection<T extends object>(
+         if (!active) return
+         if (status === 'SUBSCRIBED') {
+           patchScope(scopeId, (base) => ({ ...base, realtime: 'live' }))
+-          // Reconexión: durante la caída se pudieron perder eventos. Si la carga sigue en vuelo,
+-          // el búfer cubre el hueco; si ya terminó, se recarga.
+-          if (loadedOnce && bufferRef.current === null) void load(scopeId)
++          // Siempre se recarga, aunque haya una carga en vuelo (v3 la dejaba seguir y fallaba): esa
++          // carga pudo salir antes de que el canal escuchara, o antes de la caída, y no trae lo que
++          // pasó entretanto. load() aborta la anterior; su respuesta tardía se descarta.
++          void load(scopeId)
+           return
+         }
+         // CHANNEL_ERROR, TIMED_OUT o CLOSED: los datos siguen siendo válidos; solo se marca el canal.
+diff --git a/bitacora/v3/src/hooks/useTasks.test.tsx b/bitacora/v4/src/hooks/useTasks.test.tsx
+index 02cb19a..406662a 100644
+--- a/bitacora/v3/src/hooks/useTasks.test.tsx
++++ b/bitacora/v4/src/hooks/useTasks.test.tsx
+@@ -7,8 +7,13 @@ import type { Task } from '../types'
+ import { RepositoriesProvider } from './RepositoriesContext'
+ import { useTasks } from './useTasks'
+ 
+-function setup(initial: readonly Task[] = [], projectId: string | null = PROJECT_A) {
++function setup(
++  initial: readonly Task[] = [],
++  projectId: string | null = PROJECT_A,
++  before?: (fake: ReturnType<typeof createFakeTaskRepository>) => void,
++) {
+   const fake = createFakeTaskRepository(initial)
++  before?.(fake)
+   const repositories = { ...createDemoRepositories({ latencyMs: 0 }), tasks: fake.repository }
+   const wrapper = ({ children }: { children: ReactNode }) => (
+     <RepositoriesProvider value={repositories}>{children}</RepositoriesProvider>
+@@ -242,6 +247,23 @@ describe('useTasks · tiempo real', () => {
+     expect(hook.result.current.realtime).toBe('live')
+   })
+ 
++  it('el primer SUBSCRIBED llega con la consulta inicial ya enviada: recarga y no pierde el cambio', async () => {
++    const a = makeTask({ title: 'antes' })
++    const { hook, status, setServerRow, pendingLists, control } = setup([a], PROJECT_A, (fake) => {
++      fake.control.holdLists = true // la consulta inicial sale y queda en vuelo con el estado "antes"
++    })
++    const changed = { ...a, title: 'cambiada antes de que el canal escuchara', updated_at: '2026-11-10T15:30:00.000Z' }
++    setServerRow(changed) // ocurre entre la consulta y el SUBSCRIBED: no hay evento
++    control.holdLists = false
++    act(() => status('SUBSCRIBED'))
++    await act(async () => {
++      pendingLists[0]?.reply.resolve([a]) // la respuesta de la consulta vieja llega tarde
++    })
++    await waitFor(() => expect(hook.result.current.tasks).toEqual([changed]))
++    expect(pendingLists[0]?.signal?.aborted).toBe(true)
++    expect(hook.result.current.realtime).toBe('live')
++  })
++
+   it('al volver a la pestaña recarga (red de seguridad para eventos perdidos)', async () => {
+     const a = makeTask({ title: 'antes' })
+     const { hook, setServerRow } = setup([a])
