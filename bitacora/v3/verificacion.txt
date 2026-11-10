@@ -11,7 +11,7 @@ $ pnpm exec oxlint --deny-warnings
 ### Pruebas (Vitest)
 $ pnpm exec vitest run
 
- RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
+ RUN  v5.1.0 C:/Users/<usuario>/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
 
  ❯ src/hooks/useTasks.test.tsx (17 tests | 1 failed) 2690ms
    ❯ useTasks · tiempo real (6)

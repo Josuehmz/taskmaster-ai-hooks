@@ -23,7 +23,7 @@ src/components/TaskBoard.tsx:86:14: warning jsx-a11y(prefer-tag-over-role): Pref
 ### Pruebas (Vitest)
 $ pnpm exec vitest run
 
- RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
+ RUN  v5.1.0 C:/Users/<usuario>/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
 
  ❯ src/components/TaskBoard.test.tsx (3 tests | 2 failed) 1424ms
    ❯ TaskBoard (ejemplo de implementación) (3)

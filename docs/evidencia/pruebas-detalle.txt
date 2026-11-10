@@ -1,7 +1,7 @@
 Pruebas con detalle · 2026-11-10 15:06:41 -0500 · commit 2e1309a
 $ pnpm exec vitest run --reporter=verbose
 
- RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
+ RUN  v5.1.0 C:/Users/<usuario>/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
 
  ✓ src/hooks/reconcile.test.ts > reconcile > upsertRow inserta, reemplaza por clave y es idempotente 95ms
  ✓ src/hooks/reconcile.test.ts > reconcile > sameRow ignora el orden de las columnas (payload Realtime frente a respuesta HTTP) 2ms

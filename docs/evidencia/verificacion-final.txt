@@ -24,7 +24,7 @@ src/components/__ViolacionDePrueba.tsx:3:1: error eslint(no-restricted-imports):
 ### $ pnpm test
 $ vitest run
 
- RUN  v5.1.0 C:/Users/josue/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
+ RUN  v5.1.0 C:/Users/<usuario>/OneDrive/Documentos/Repositorios/universidad/taskmaster-ai-hooks
 
 
  Test Files  8 passed (8)
